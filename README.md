@@ -1,56 +1,47 @@
-# Welcome to your Expo app 👋
+# Get Gud
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A discipline and emotion-control app for iPhone, built for trading and for life.
 
-## Get started
+- **Gate** — before every trade: name what you feel, tick every rule. The app answers *Clear*, *Wait* or *Stop* using your feelings, your checklist, your daily trade limit, your loss streak and a cool-down after losses.
+- **Journal** — log each result (R multiple, rules followed, how you feel after). It shows what each emotion costs you, and how rule-breaking and overrides really perform.
+- **Urge** — when you want to revenge trade, move a stop, doomscroll or skip the gym: name it, rate it, and ride it out with a guided breathing timer.
+- **Today** — morning/evening check-in: mood, energy, sleep, daily promises, streak, and your trading status for the day.
 
-1. Install dependencies
+Everything is stored only on the phone. No account, no server.
 
+## Run it on your iPhone (no Mac needed)
+
+1. Install **Expo Go** from the App Store on your iPhone.
+2. On your computer (Windows is fine), install Node.js 20+.
+3. In this folder:
    ```bash
    npm install
-   ```
-
-2. Start the app
-
-   ```bash
    npx expo start
    ```
+4. Scan the QR code with the iPhone camera. Phone and computer must be on the same Wi-Fi (or run `npx expo start --tunnel`).
 
-In the output, you'll find options to open the app in a
+## Install it as a real app (TestFlight)
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **src/app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+Needs an Apple Developer account (USD 99/year). No Mac required — builds run in Expo's cloud:
 
 ```bash
-npm run reset-project
+npx eas-cli@latest login
+npx eas-cli@latest build --platform ios --profile production
+npx eas-cli@latest submit --platform ios
 ```
 
-This command will move the starter code to the **example** directory and create a blank **src/app** directory where you can start developing.
+## Stack
 
-### Other setup steps
+Expo SDK 58, React Native 0.88, Expo Router (native tabs), TypeScript, `expo-sqlite` key-value store, `expo-haptics`, Big Shoulders Display.
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+```
+src/
+  app/            routes: (tabs)/index|gate|journal|urge, settings, trade/[id]
+  constants/      design tokens (colour = meaning)
+  lib/store.ts    on-device state + actions
+  lib/derive.ts   gate rules, streaks, journal stats (pure functions)
+  ui/             component kit
+DESIGN.md         design and copy rules
+```
 
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+Typecheck: `npx tsc --noEmit` · Lint: `npx expo lint`
