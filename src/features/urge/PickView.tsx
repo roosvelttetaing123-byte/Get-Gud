@@ -59,7 +59,6 @@ function Record({ urges }: { urges: Urge[] }) {
       </Section>
     );
   }
-  const now = Date.now();
   return (
     <Section title="Your record">
       <Row gap={S.xl} style={styles.stats}>
@@ -82,7 +81,7 @@ function Record({ urges }: { urges: Urge[] }) {
             <Row gap={S.md} style={styles.entry}>
               <View style={styles.entryMain}>
                 <Body numberOfLines={1}>{u.kind}</Body>
-                <Small>{timeAgo(u.ts, now)}</Small>
+                <Small>{timeAgo(u.ts)}</Small>
               </View>
               <View style={styles.entrySide}>
                 <Sub color={u.outcome === 'resisted' ? C.jade : C.coral}>

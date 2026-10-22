@@ -90,14 +90,12 @@ function ResultForm({ trade, onDelete }: { trade: Trade; onDelete: () => void })
   const save = () => {
     if (!result || invalid) return;
     const wasLoss = trade.result === 'loss';
-    actions.updateTrade(trade.id, {
+    actions.closeTrade(trade.id, {
       result,
       r: parsed !== undefined ? signR(parsed, result) : result === 'be' ? 0 : undefined,
       followedRules: followed === undefined ? undefined : followed === 'yes',
       emotionsAfter: after,
       note: note.trim() || undefined,
-      // Editing an old result keeps its close time so loss streaks and cool-downs stay true.
-      closedTs: trade.closedTs ?? Date.now(),
     });
 
     // A new loss on today's trade that ends the day gets a stop instead of a quiet close.

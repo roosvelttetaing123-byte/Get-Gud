@@ -174,6 +174,14 @@ export const actions = {
     commit({ ...state, trades: state.trades.map((t) => (t.id === id ? { ...t, ...patch } : t)) });
   },
 
+  /** Record a result. Keeps the original close time when editing, so streaks and cool-downs stay true. */
+  closeTrade(id: string, patch: Omit<Partial<Trade>, 'closedTs'>) {
+    commit({
+      ...state,
+      trades: state.trades.map((t) => (t.id === id ? { ...t, ...patch, closedTs: t.closedTs ?? Date.now() } : t)),
+    });
+  },
+
   deleteTrade(id: string) {
     commit({ ...state, trades: state.trades.filter((t) => t.id !== id) });
   },
