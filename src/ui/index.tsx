@@ -86,16 +86,19 @@ export function Num({
   size = 34,
   weight = '700',
   color = C.label,
+  numberOfLines,
   style,
 }: {
   children: React.ReactNode;
   size?: number;
   weight?: Weight;
   color?: string;
+  numberOfLines?: number;
   style?: StyleProp<TextStyle>;
 }) {
   return (
     <Text
+      numberOfLines={numberOfLines}
       style={[
         {
           fontFamily: FONT.rounded,
@@ -704,11 +707,11 @@ export function Stat({
   size?: number;
 }) {
   return (
-    <View style={{ flex: 1, gap: 2 }}>
-      <Num size={size} color={color}>
+    <View style={{ flex: 1, gap: 2, minWidth: 0 }}>
+      <Num size={size} color={color} numberOfLines={1}>
         {value}
       </Num>
-      <Txt v="footnote" color={C.label2}>
+      <Txt v="footnote" color={C.label2} numberOfLines={1}>
         {label}
       </Txt>
     </View>
