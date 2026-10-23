@@ -4,7 +4,7 @@
  * re-syncs correctly after the app has been in the background.
  */
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, AppState, Easing, StyleSheet, View, useAnimatedValue } from 'react-native';
+import { Animated, AppState, Easing, StyleSheet, View } from 'react-native';
 
 import { C, S, T } from '@/constants/theme';
 import { haptic } from '@/lib/haptics';
@@ -52,7 +52,7 @@ export const BreathingCircle = memo(function BreathingCircle({
   // A fresh object on every update, so an AppState resync re-runs the pacing effect
   // even when the phase hasn't changed.
   const [tick, setTick] = useState(() => ({ ord: ordinalAt(Date.now() - startAt) }));
-  const fullness = useAnimatedValue(0);
+  const [fullness] = useState(() => new Animated.Value(0));
   const lastOrd = useRef<number | null>(null);
 
   useEffect(() => {

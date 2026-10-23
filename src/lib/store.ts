@@ -2,7 +2,7 @@
  * On-device store. One JSON blob in expo-sqlite's key-value store,
  * exposed to React through useSyncExternalStore. No network, no account.
  */
-import Storage from 'expo-sqlite/kv-store';
+import { kv } from './kv';
 import { useSyncExternalStore } from 'react';
 
 export type Verdict = 'clear' | 'wait' | 'stop';
@@ -90,7 +90,7 @@ function fresh(): State {
 
 function load(): State {
   try {
-    const raw = Storage.getItemSync(KEY);
+    const raw = kv.get(KEY);
     if (!raw) return fresh();
     const parsed = JSON.parse(raw) as Partial<State>;
     return {
@@ -114,7 +114,7 @@ function subscribe(l: () => void) {
 function commit(next: State) {
   state = next;
   try {
-    Storage.setItemSync(KEY, JSON.stringify(state));
+    kv.set(KEY, JSON.stringify(state));
   } catch {
     // storage failure must never crash the UI; state stays in memory
   }
