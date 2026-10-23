@@ -7,7 +7,7 @@ import { StatusBar } from 'expo-status-bar';
 import React, { useCallback, useRef, useState } from 'react';
 
 import { FeelStep } from '@/features/gate/FeelStep';
-import { isLossDriven, toggleEmotion } from '@/features/gate/logic';
+import { isLossDriven, toggleEmotion, walkedTotal } from '@/features/gate/logic';
 import { RulesStep } from '@/features/gate/RulesStep';
 import { useNow } from '@/features/gate/useNow';
 import { useReduceMotion } from '@/features/gate/useReduceMotion';
@@ -82,7 +82,8 @@ export default function GateScreen() {
       <FeelStep
         selected={emotions}
         onToggle={(label) => setEmotions((prev) => toggleEmotion(prev, label))}
-        limitHit={tradingToday(state, now).limitHit}
+        trading={tradingToday(state, now)}
+        settings={state.settings}
         onNext={() => {
           refreshNow();
           setPhase({ step: 'rules' });
@@ -111,7 +112,12 @@ export default function GateScreen() {
     return (
       <>
         {statusBar}
-        <WalkedStep line={phase.line} onDone={reset} autoDoneMs={phase.brief ? 3500 : undefined} />
+        <WalkedStep
+          line={phase.line}
+          total={walkedTotal(state)}
+          onDone={reset}
+          autoDoneMs={phase.brief ? 3500 : undefined}
+        />
       </>
     );
   }
@@ -123,6 +129,9 @@ export default function GateScreen() {
       <VerdictStep
         key={phase.id}
         result={result}
+        emotions={emotions}
+        ticked={checked.filter(Boolean).length}
+        total={rules.length}
         reduceMotion={reduceMotion}
         onLogEntry={(plan) => {
           log(result, true, false, plan);

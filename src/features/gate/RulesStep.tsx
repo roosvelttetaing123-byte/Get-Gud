@@ -1,12 +1,15 @@
 import { router } from 'expo-router';
+import { ArrowLeft, ListChecks, Settings, ShieldCheck } from 'lucide-react-native';
 import React from 'react';
 import { View } from 'react-native';
 
-import { S, toneColor } from '@/constants/theme';
+import { C, S, Tint } from '@/constants/theme';
+import { haptic } from '@/lib/haptics';
 import type { State } from '@/lib/store';
-import { Body, Button, CheckRow, Divider, Hero, Row, Screen, Section, Small, Sub, Surface } from '@/ui';
+import { Button, Card, Display, IconBadge, Row, Screen, Section, Sub } from '@/ui';
 
 import { todayFacts } from './logic';
+import { ChecklistProgress, FactsCard, RuleCard, StepHeader } from './parts';
 
 export function RulesStep({
   state,
@@ -27,47 +30,51 @@ export function RulesStep({
   const ticked = rules.filter((_, i) => checked[i]).length;
   const facts = todayFacts(state, now);
 
+  const toggle = (i: number) => {
+    if (!checked[i] && ticked === rules.length - 1) haptic.success();
+    onToggle(i);
+  };
+
   return (
     <Screen>
-      <Hero context="Your checklist" title="Every box, honestly." />
+      <StepHeader context="Your checklist" title="Every box, honestly." step={2} />
 
       {rules.length ? (
-        <View style={{ gap: S.sm }}>
-          <Surface style={{ gap: 0, paddingVertical: S.xs }}>
+        <>
+          <ChecklistProgress ticked={ticked} total={rules.length} />
+          <View style={{ gap: S.md }}>
             {rules.map((rule, i) => (
-              <View key={`${i}-${rule}`}>
-                {i > 0 ? <Divider /> : null}
-                <CheckRow label={rule} checked={!!checked[i]} onPress={() => onToggle(i)} />
-              </View>
+              <RuleCard key={`${i}-${rule}`} rule={rule} index={i} checked={!!checked[i]} onPress={() => toggle(i)} />
             ))}
-          </Surface>
-          <Small style={{ paddingHorizontal: S.xs }}>
-            {ticked === rules.length
-              ? `All ${rules.length} ticked.`
-              : `${ticked} of ${rules.length} ticked. Leave a box empty and the gate says stop.`}
-          </Small>
-        </View>
+          </View>
+        </>
       ) : (
-        <Surface>
-          <Body>No rules yet.</Body>
+        <Card>
+          <Row gap={S.md}>
+            <IconBadge icon={ListChecks} color={C.accent} bg={Tint.accent} />
+            <Display size={20} weight="bold" style={{ flex: 1 }}>
+              No rules yet.
+            </Display>
+          </Row>
           <Sub>Add your pre-trade checklist in Settings. The gate checks every box before it clears you.</Sub>
-          <Button kind="secondary" label="Open settings" onPress={() => router.push('/settings')} />
-        </Surface>
+          <Button kind="secondary" icon={Settings} label="Open settings" onPress={() => router.push('/settings')} />
+        </Card>
       )}
 
-      <Section title="Today">
-        <Surface style={{ gap: S.sm }}>
-          {facts.map((f) => (
-            <Sub key={f.text} color={f.tone === 'neutral' ? undefined : toneColor(f.tone)}>
-              {f.text}
-            </Sub>
-          ))}
-        </Surface>
+      <Section title="Today" aside="What the gate sees">
+        <FactsCard facts={facts} />
       </Section>
 
       <Row gap={S.md}>
-        <Button kind="secondary" label="Back" onPress={onBack} style={{ flex: 1 }} />
-        <Button label="Check me" onPress={onCheck} disabled={!rules.length} style={{ flex: 2 }} />
+        <Button kind="secondary" icon={ArrowLeft} label="Back" onPress={onBack} style={{ flex: 1 }} />
+        <Button
+          kind="accent"
+          icon={ShieldCheck}
+          label="Check me"
+          onPress={onCheck}
+          disabled={!rules.length}
+          style={{ flex: 1.6 }}
+        />
       </Row>
     </Screen>
   );

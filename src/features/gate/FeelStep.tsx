@@ -1,75 +1,71 @@
+import { ListChecks } from 'lucide-react-native';
 import React from 'react';
-import { View } from 'react-native';
+import { useWindowDimensions, View } from 'react-native';
 
-import { C, S, toneColor } from '@/constants/theme';
-import { EMOTIONS } from '@/lib/derive';
-import { Body, Button, Chip, Divider, Hero, Row, Screen, Small, Sub, Surface } from '@/ui';
+import { S } from '@/constants/theme';
+import type { TradingToday } from '@/lib/derive';
+import type { Settings } from '@/lib/store';
+import { Button, Grid, Screen } from '@/ui';
+
+import { EmotionTile, emotionTitleSize } from './EmotionTile';
 
 import { EMOTION_GROUPS } from './logic';
+import { emotionLook } from './look';
+import { GroupHead, PickedCard, SessionCard, StepHeader } from './parts';
+
+const GAP = 10;
 
 export function FeelStep({
   selected,
   onToggle,
-  limitHit,
+  trading,
+  settings,
   onNext,
 }: {
   selected: string[];
   onToggle: (label: string) => void;
-  limitHit: string | null;
+  trading: TradingToday;
+  settings: Settings;
   onNext: () => void;
 }) {
-  const picked = EMOTIONS.filter((e) => selected.includes(e.label));
+  const { width } = useWindowDimensions();
+  // Screen caps content at 560 wide with 20pt gutters; three columns share two gaps.
+  const column = (Math.min(width, 560) - S.gutter * 2 - GAP * 2) / 3;
+  const titleSize = emotionTitleSize(column);
 
   return (
     <Screen>
-      <Hero context="Before you touch the chart" title="How do you feel?" />
+      <StepHeader context="Before you touch the chart" title="How do you feel?" step={1} />
 
-      {limitHit ? (
-        <Surface tone="coral">
-          <Body>{limitHit}</Body>
-          <Sub>You can still check in. The gate will say stop.</Sub>
-        </Surface>
-      ) : null}
+      <SessionCard trading={trading} settings={settings} />
 
-      <View style={{ gap: S.lg }}>
+      <View style={{ gap: S.xl }}>
         {EMOTION_GROUPS.map((g) => (
-          <View key={g.tone} style={{ gap: S.sm }}>
-            <Small>{g.caption}</Small>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: S.sm }}>
-              {g.items.map((e) => (
-                <Chip
-                  key={e.label}
-                  label={e.label}
-                  tone={e.tone}
-                  selected={selected.includes(e.label)}
-                  onPress={() => onToggle(e.label)}
-                />
-              ))}
-            </View>
+          <View key={g.tone} style={{ gap: S.md }}>
+            <GroupHead title={g.caption} aside={g.aside} tone={g.tone} />
+            <Grid columns={3} gap={GAP}>
+              {g.items.map((e) => {
+                const look = emotionLook(e.label);
+                return (
+                  <EmotionTile
+                    key={e.label}
+                    label={e.label}
+                    icon={look.icon}
+                    pastel={look.pastel}
+                    selected={selected.includes(e.label)}
+                    titleSize={titleSize}
+                    onPress={() => onToggle(e.label)}
+                  />
+                );
+              })}
+            </Grid>
           </View>
         ))}
       </View>
 
-      {picked.length ? (
-        <Surface style={{ gap: 0, paddingVertical: S.sm }}>
-          {picked.map((e, i) => (
-            <View key={e.label}>
-              {i > 0 ? <Divider /> : null}
-              <Row gap={S.md} style={{ paddingVertical: 10, alignItems: 'baseline' }}>
-                <View
-                  style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: toneColor(e.tone), top: -1 }}
-                />
-                <Body style={{ fontWeight: '600', minWidth: 92 }}>{e.label}</Body>
-                <Sub style={{ flex: 1 }}>{e.hint}</Sub>
-              </Row>
-            </View>
-          ))}
-        </Surface>
-      ) : (
-        <Sub color={C.faint}>Pick everything that’s true right now. More than one is fine.</Sub>
-      )}
+      <PickedCard selected={selected} />
 
-      <Button label="Next" onPress={onNext} disabled={!selected.length} />
+      <Button kind="accent" icon={ListChecks} label="Next" onPress={onNext} disabled={!selected.length} />
     </Screen>
   );
 }
