@@ -1,66 +1,193 @@
 /**
- * Journal building blocks. Composed only from the kit and theme tokens.
+ * Journal building blocks. Composed from the kit and theme tokens.
  */
+import { LinearGradient } from 'expo-linear-gradient';
+import {
+  Award,
+  ChevronRight,
+  DoorOpen,
+  NotebookPen,
+  OctagonX,
+  ShieldAlert,
+  ShieldCheck,
+  type LucideIcon,
+} from 'lucide-react-native';
+import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { C, F, R as Radius, S, T, Tint, toneColor, type Tone } from '@/constants/theme';
+import { C, F, R as Radius, S, toneColor, type Tone } from '@/constants/theme';
 import { emotionTone, fmtR, timeAgo, type Bucket } from '@/lib/derive';
 import type { Trade } from '@/lib/store';
-import { Body, Button, Display, Divider, Row, Small, Stat, Sub, Surface } from '@/ui';
+import { Body, Button, Card, Display, Divider, Icon, IconBadge, Pill, Row, Small, Sub } from '@/ui';
 
-import { clock, count, inSentence, outcome, pct, rColor, VERDICT } from './format';
+import { EquityCurve } from './EquityCurve';
+import { alpha, clock, count, dayLabel, inSentence, outcome, pct, rColor, VERDICT, whenLabel, type DayGroup } from './format';
+import { emotionIcon, outcomeIcon, toneBg, toneFg, VERDICT_ICON } from './icons';
+
+const onArt = (a: number) => `rgba(242,245,251,${a})`;
+const rTone = (r: number): Tone => (r > 0 ? 'jade' : r < 0 ? 'coral' : 'neutral');
 
 /* ---------- small pieces ---------- */
 
-export function ToneDot({ tone, size = 7 }: { tone: Tone; size?: number }) {
-  return <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: toneColor(tone) }} />;
+/** IconBadge in a tone's colours. */
+export function ToneBadge({ icon, tone, size = 40 }: { icon: LucideIcon; tone: Tone; size?: number }) {
+  return <IconBadge icon={icon} color={toneFg(tone)} bg={toneBg(tone)} size={size} />;
 }
 
-/** Emotion names as small coloured text, each with its tone dot. */
-export function EmotionTags({ emotions, empty = 'No emotion named' }: { emotions: string[]; empty?: string }) {
+/** Compact label for list rows. `flag` gives a tinted fill for warnings; otherwise a quiet fill with a dot. */
+export function MiniPill({ label, tone, icon, flag }: { label: string; tone: Tone; icon?: LucideIcon; flag?: boolean }) {
+  const fg = toneFg(tone);
+  return (
+    <View style={[styles.mini, { backgroundColor: flag ? alpha(fg, 0.14) : 'rgba(255,255,255,0.06)' }]}>
+      {icon ? <Icon icon={icon} size={12} color={fg} stroke={2.4} /> : <View style={[styles.miniDot, { backgroundColor: fg }]} />}
+      <Text style={[styles.miniText, { color: flag ? fg : C.mist }]}>{label}</Text>
+    </View>
+  );
+}
+
+/** Emotions as pills with their icon (md) or as compact dotted pills for list rows (sm). */
+export function EmotionPills({
+  emotions,
+  size = 'md',
+  empty = 'No emotion named',
+}: {
+  emotions: string[];
+  size?: 'sm' | 'md';
+  empty?: string;
+}) {
   if (!emotions.length) return <Small color={C.faint}>{empty}</Small>;
   return (
-    <View style={styles.tags}>
-      {emotions.map((e) => {
-        const tone = emotionTone(e);
-        return (
-          <Row key={e} gap={5}>
-            <ToneDot tone={tone} size={6} />
-            <Small color={toneColor(tone)} style={{ fontWeight: '600' }}>
-              {e}
-            </Small>
-          </Row>
-        );
-      })}
+    <View style={[styles.wrap, { gap: size === 'md' ? S.sm : 6 }]}>
+      {emotions.map((e) =>
+        size === 'md' ? (
+          <Pill key={e} label={e} icon={emotionIcon(e)} tone={emotionTone(e)} />
+        ) : (
+          <MiniPill key={e} label={e} tone={emotionTone(e)} />
+        ),
+      )}
     </View>
   );
 }
 
-export function Badge({ label, tone }: { label: string; tone: Tone }) {
-  const neutral = tone === 'neutral';
+/** A short line of guidance with an icon in front. */
+export function HintRow({ icon, children }: { icon: LucideIcon; children: React.ReactNode }) {
   return (
-    <View style={[styles.badge, { backgroundColor: neutral ? C.raised : Tint[tone] }]}>
-      <Text style={[styles.badgeText, { color: neutral ? C.haze : toneColor(tone) }]}>{label}</Text>
+    <Row gap={S.sm} style={{ paddingHorizontal: 2 }}>
+      <Icon icon={icon} size={16} color={C.haze} />
+      <Small style={{ flex: 1 }}>{children}</Small>
+    </Row>
+  );
+}
+
+/* ---------- hero ---------- */
+
+function HeroStat({ value, label, color = C.mist }: { value: string; label: string; color?: string }) {
+  return (
+    <View style={{ flex: 1, gap: 2 }}>
+      <Display size={18} color={color} numberOfLines={1}>
+        {value}
+      </Display>
+      <Small color={onArt(0.7)}>{label}</Small>
     </View>
   );
 }
 
-/** Horizontal bar centred on zero: coral grows left for negative R, jade grows right for positive. */
-export function ZeroBar({ value, max }: { value: number; max: number }) {
-  const share = max > 0 ? Math.min(Math.abs(value) / max, 1) : 0;
-  const width = value === 0 ? 0 : Math.max(share * 100, 4);
+const HeroDivider = () => <View style={{ width: 1, backgroundColor: onArt(0.15) }} />;
+
+export function HeroFooter({
+  winRate,
+  avgR,
+  skipped,
+  closed,
+}: {
+  winRate: number;
+  avgR: number;
+  skipped: number;
+  closed: number;
+}) {
   return (
-    <View style={styles.track} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-      <View style={[styles.half, { justifyContent: 'flex-end' }]}>
-        {value < 0 ? <View style={[styles.fill, styles.fillLeft, { width: `${width}%`, backgroundColor: C.coral }]} /> : null}
-      </View>
-      <View style={styles.zero} />
-      <View style={[styles.half, { justifyContent: 'flex-start' }]}>
-        {value > 0 ? <View style={[styles.fill, styles.fillRight, { width: `${width}%`, backgroundColor: C.jade }]} /> : null}
-      </View>
-    </View>
+    <>
+      <HeroStat value={closed ? pct(winRate) : '–'} label="Win rate" />
+      <HeroDivider />
+      <HeroStat value={closed ? fmtR(avgR) : '–'} label="Average R" color={closed ? rColor(avgR) : C.mist} />
+      <HeroDivider />
+      <HeroStat value={String(skipped)} label="Walked away" color={skipped ? C.jade : C.mist} />
+    </>
   );
 }
+
+/** Net R, a line under it and the equity curve bleeding to the card edges. */
+export function HeroBody({
+  since,
+  best,
+  title,
+  titleColor,
+  line,
+  curve,
+}: {
+  since?: string;
+  best?: number;
+  title: string;
+  titleColor: string;
+  line: string;
+  curve: number[];
+}) {
+  const closed = curve.length - 1;
+  const net = curve[curve.length - 1] ?? 0;
+  const color = closed ? (net >= 0 ? C.jade : C.coral) : onArt(0.45);
+  return (
+    <>
+      <Row style={{ justifyContent: 'space-between', minHeight: 30 }}>
+        <Small color={onArt(0.8)}>{since ?? 'Your record'}</Small>
+        {best !== undefined ? <Pill icon={Award} label={`Best ${fmtR(best)}`} /> : null}
+      </Row>
+      <View style={{ gap: 2 }}>
+        <Display size={closed ? 48 : 30} color={titleColor} style={{ letterSpacing: -1.4 }}>
+          {title}
+        </Display>
+        <Sub color={onArt(0.8)}>{line}</Sub>
+      </View>
+      <EquityCurve
+        values={closed ? curve : []}
+        color={color}
+        height={92}
+        label={closed ? `Equity curve: ${fmtR(net)} after ${count(closed, 'closed trade')}` : 'Equity curve, no closed trades yet'}
+        style={{ marginHorizontal: -S.xl, marginBottom: -S.xl, marginTop: S.xs }}
+      />
+    </>
+  );
+}
+
+/* ---------- open trades ---------- */
+
+export function OpenTradeCard({ trade, onLog }: { trade: Trade; onLog: () => void }) {
+  const v = VERDICT[trade.verdict];
+  return (
+    <LinearGradient
+      colors={[alpha(C.tangerine, 0.09), alpha(C.tangerine, 0)]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 0, y: 1 }}
+      style={[styles.toneCard, { borderColor: alpha(C.tangerine, 0.4) }]}>
+      <Row gap={S.md}>
+        <ToneBadge icon={outcomeIcon(trade)} tone="tangerine" size={44} />
+        <View style={{ flex: 1, gap: 1 }}>
+          <Display size={22}>{clock(trade.ts)}</Display>
+          <Small>{`Opened ${timeAgo(trade.ts)}`}</Small>
+        </View>
+        <Pill icon={VERDICT_ICON[trade.verdict]} label={`Gate said ${v.word.toLowerCase()}`} tone={v.tone} />
+      </Row>
+      <EmotionPills emotions={trade.emotions} />
+      <View style={{ gap: 4 }}>
+        <Small color={C.faint}>Plan</Small>
+        {trade.plan ? <Body>{trade.plan}</Body> : <Sub color={C.faint}>No plan written</Sub>}
+      </View>
+      {trade.overridden ? <HintRow icon={OctagonX}>You took it through a stop.</HintRow> : null}
+      <Button label="Log result" icon={NotebookPen} onPress={onLog} />
+    </LinearGradient>
+  );
+}
+
+/* ---------- what your emotions cost ---------- */
 
 /** "while frustrated", "with FOMO", "out of revenge". */
 export function emotionPhrase(label: string) {
@@ -69,41 +196,81 @@ export function emotionPhrase(label: string) {
   return `while ${inSentence(label)}`;
 }
 
-/* ---------- open trades ---------- */
-
-export function OpenTrade({ trade, onLog }: { trade: Trade; onLog: () => void }) {
+/** The one sentence that names the most expensive emotion, as a highlighted insight. */
+export function CostInsight({ worst }: { worst: Bucket }) {
   return (
-    <View style={{ gap: S.sm }}>
-      <Row style={{ alignItems: 'baseline' }} gap={S.md}>
-        <Display size={T.stat}>{clock(trade.ts)}</Display>
-        <Sub>{timeAgo(trade.ts)}</Sub>
+    <LinearGradient
+      colors={[alpha(C.coral, 0.16), alpha(C.coral, 0.03)]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={[styles.toneCard, { borderColor: alpha(C.coral, 0.32) }]}>
+      <Row gap={S.md} style={{ alignItems: 'flex-start' }}>
+        <ToneBadge icon={emotionIcon(worst.label)} tone="coral" size={44} />
+        <View style={{ flex: 1, gap: 4 }}>
+          <Small color={C.coral} style={{ fontFamily: F.bold }}>
+            Your most expensive feeling
+          </Small>
+          <Body>
+            {`Trades taken ${emotionPhrase(worst.label)}: `}
+            <Text style={{ fontFamily: F.extra, color: C.mist }}>{pct(worst.winRate)}</Text>
+            {' win rate, '}
+            <Text style={{ fontFamily: F.extra, color: rColor(worst.avgR) }}>{fmtR(worst.avgR)}</Text>
+            {' on average.'}
+          </Body>
+        </View>
       </Row>
-      <EmotionTags emotions={trade.emotions} />
-      {trade.plan ? <Body>{trade.plan}</Body> : <Sub color={C.faint}>No plan written</Sub>}
-      <Button label="Log result" onPress={onLog} style={{ marginTop: S.xs }} />
+    </LinearGradient>
+  );
+}
+
+/** Horizontal bar centred on zero: coral grows left for negative R, jade grows right for positive. */
+export function ZeroBar({ value, max }: { value: number; max: number }) {
+  const share = max > 0 ? Math.min(Math.abs(value) / max, 1) : 0;
+  const width = value === 0 ? 0 : Math.max(share * 100, 6);
+  return (
+    <View style={styles.barBox} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+      <View style={styles.track}>
+        <View style={[styles.half, { justifyContent: 'flex-end' }]}>
+          {value < 0 ? (
+            <LinearGradient
+              colors={[C.coral, alpha(C.coral, 0.45)]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={[styles.fill, { width: `${width}%` }]}
+            />
+          ) : null}
+        </View>
+        <View style={[styles.half, { justifyContent: 'flex-start' }]}>
+          {value > 0 ? (
+            <LinearGradient
+              colors={[alpha(C.jade, 0.45), C.jade]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={[styles.fill, { width: `${width}%` }]}
+            />
+          ) : null}
+        </View>
+      </View>
+      <View style={styles.zero} />
     </View>
   );
 }
 
-/* ---------- what your emotions cost ---------- */
-
 export function EmotionCostRow({ bucket, max }: { bucket: Bucket; max: number }) {
   const tone = emotionTone(bucket.label);
-  const meta = `${count(bucket.n, 'trade')}, ${pct(bucket.winRate)} win rate`;
+  const meta = `${count(bucket.n, 'trade')} · ${pct(bucket.winRate)} win rate`;
   return (
     <View
       accessible
-      accessibilityLabel={`${bucket.label}: ${meta}, average ${fmtR(bucket.avgR)}`}
-      style={{ gap: S.sm, paddingVertical: 2 }}>
+      accessibilityLabel={`${bucket.label}: ${count(bucket.n, 'trade')}, ${pct(bucket.winRate)} win rate, average ${fmtR(bucket.avgR)}`}
+      style={{ gap: 10 }}>
       <Row gap={S.md}>
-        <View style={{ flex: 1, gap: 2 }}>
-          <Row gap={S.sm}>
-            <ToneDot tone={tone} />
-            <Body style={{ fontWeight: '600' }}>{bucket.label}</Body>
-          </Row>
+        <ToneBadge icon={emotionIcon(bucket.label)} tone={tone} size={40} />
+        <View style={{ flex: 1, gap: 1 }}>
+          <Body style={{ fontFamily: F.bold }}>{bucket.label}</Body>
           <Small>{meta}</Small>
         </View>
-        <Display size={T.stat} color={rColor(bucket.avgR)}>
+        <Display size={20} color={rColor(bucket.avgR)}>
           {fmtR(bucket.avgR)}
         </Display>
       </Row>
@@ -112,51 +279,93 @@ export function EmotionCostRow({ bucket, max }: { bucket: Bucket; max: number })
   );
 }
 
-/** The one sentence that names the most expensive emotion. */
-export function CostHeadline({ worst }: { worst: Bucket }) {
+/** Analytics card: one row per pre-trade emotion, worst first. */
+export function EmotionCostCard({ buckets }: { buckets: Bucket[] }) {
+  const max = Math.max(0, ...buckets.map((b) => Math.abs(b.avgR)));
   return (
-    <Body>
-      {`Trades taken ${emotionPhrase(worst.label)}: `}
-      <Text style={{ fontFamily: F.body, fontWeight: '700', color: C.mist }}>{pct(worst.winRate)}</Text>
-      {' win rate, '}
-      <Text style={{ fontFamily: F.body, fontWeight: '700', color: rColor(worst.avgR) }}>{fmtR(worst.avgR)}</Text>
-      {' on average.'}
-    </Body>
+    <Card style={{ gap: S.lg, paddingVertical: S.lg + 2 }}>
+      <Row style={{ justifyContent: 'space-between' }}>
+        <Small color={C.faint}>Average R per trade, by feeling</Small>
+        <Row gap={S.md}>
+          <Legend color={C.coral} label="Costs" />
+          <Legend color={C.jade} label="Pays" />
+        </Row>
+      </Row>
+      {buckets.map((b, i) => (
+        <React.Fragment key={b.label}>
+          {i > 0 ? <Divider /> : null}
+          <EmotionCostRow bucket={b} max={max} />
+        </React.Fragment>
+      ))}
+    </Card>
   );
 }
 
-function Empty() {
+function Legend({ color, label }: { color: string; label: string }) {
   return (
-    <View style={{ flex: 1 }}>
-      <Small color={C.faint}>None yet</Small>
-    </View>
+    <Row gap={5}>
+      <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: color }} />
+      <Small color={C.haze}>{label}</Small>
+    </Row>
   );
 }
 
-/** Followed rules vs broke rules, side by side. */
+/* ---------- followed vs broke ---------- */
+
+function RuleCard({ bucket, tone, icon, title }: { bucket: Bucket; tone: 'jade' | 'coral'; icon: LucideIcon; title: string }) {
+  const color = toneColor(tone);
+  return (
+    <LinearGradient
+      colors={[alpha(color, 0.16), alpha(color, 0.03)]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 0, y: 1 }}
+      style={[styles.toneCard, styles.ruleCard, { borderColor: alpha(color, 0.32) }]}
+      accessible
+      accessibilityLabel={
+        bucket.n
+          ? `${title}: ${count(bucket.n, 'trade')}, ${pct(bucket.winRate)} win rate, ${fmtR(bucket.avgR)} average`
+          : `${title}: none yet`
+      }>
+      <Row style={{ justifyContent: 'space-between' }}>
+        <ToneBadge icon={icon} tone={tone} size={36} />
+        <Small>{count(bucket.n, 'trade')}</Small>
+      </Row>
+      <Sub color={C.mist} style={{ fontFamily: F.bold, marginTop: S.xs }}>
+        {title}
+      </Sub>
+      {bucket.n ? (
+        <>
+          <View>
+            <Display size={34} color={color}>
+              {pct(bucket.winRate)}
+            </Display>
+            <Small>win rate</Small>
+          </View>
+          <View style={styles.rateTrack}>
+            {bucket.winRate > 0 ? (
+              <View style={[styles.rateFill, { width: `${Math.max(bucket.winRate * 100, 4)}%`, backgroundColor: color }]} />
+            ) : null}
+          </View>
+          <View>
+            <Display size={19} color={rColor(bucket.avgR)}>
+              {fmtR(bucket.avgR)}
+            </Display>
+            <Small>average per trade</Small>
+          </View>
+        </>
+      ) : (
+        <Small color={C.faint}>None yet</Small>
+      )}
+    </LinearGradient>
+  );
+}
+
 export function RulesComparison({ followed, broke }: { followed: Bucket; broke: Bucket }) {
   return (
-    <Surface>
-      <Body style={{ fontWeight: '600' }}>Followed rules vs broke rules</Body>
-      <Row gap={S.lg} style={{ alignItems: 'flex-start' }}>
-        <Row gap={S.sm} style={{ flex: 1 }}>
-          <ToneDot tone="jade" />
-          <Sub>{`Followed, ${count(followed.n, 'trade')}`}</Sub>
-        </Row>
-        <Row gap={S.sm} style={{ flex: 1 }}>
-          <ToneDot tone="coral" />
-          <Sub>{`Broke, ${count(broke.n, 'trade')}`}</Sub>
-        </Row>
-      </Row>
-      <Row gap={S.lg} style={{ alignItems: 'flex-start' }}>
-        {followed.n ? <Stat value={pct(followed.winRate)} label="Win rate" tone="jade" /> : <Empty />}
-        {broke.n ? <Stat value={pct(broke.winRate)} label="Win rate" tone="coral" /> : <Empty />}
-      </Row>
-      <Row gap={S.lg} style={{ alignItems: 'flex-start' }}>
-        {followed.n ? <Stat value={fmtR(followed.avgR)} label="Average per trade" tone="jade" /> : <View style={{ flex: 1 }} />}
-        {broke.n ? <Stat value={fmtR(broke.avgR)} label="Average per trade" tone="coral" /> : <View style={{ flex: 1 }} />}
-      </Row>
-    </Surface>
+    <Row gap={S.md} style={{ alignItems: 'stretch' }}>
+      <RuleCard bucket={followed} tone="jade" icon={ShieldCheck} title="Followed rules" />
+      <RuleCard bucket={broke} tone="coral" icon={ShieldAlert} title="Broke rules" />
+    </Row>
   );
 }
 
@@ -166,34 +375,35 @@ const times = (n: number) => (n === 1 ? 'once' : n === 2 ? 'twice' : `${n} times
 export function DisciplineLines({ overrides, skipped }: { overrides: Bucket; skipped: number }) {
   if (!overrides.n && !skipped) return null;
   return (
-    <Surface>
+    <Card>
       {overrides.n ? (
-        <Row gap={S.md} style={{ alignItems: 'flex-start' }}>
-          <View style={styles.lineDot}>
-            <ToneDot tone="coral" size={8} />
+        <Row gap={S.md}>
+          <ToneBadge icon={OctagonX} tone="coral" size={36} />
+          <View style={{ flex: 1, gap: 1 }}>
+            <Sub color={C.mist} style={{ fontFamily: F.bold }}>
+              {`Overrode a stop ${times(overrides.n)}`}
+            </Sub>
+            <Small>
+              {`${pct(overrides.winRate)} win rate, `}
+              <Text style={{ fontFamily: F.bold, color: rColor(overrides.avgR) }}>{fmtR(overrides.avgR)}</Text>
+              {' on average'}
+            </Small>
           </View>
-          <Body style={{ flex: 1 }}>
-            {`Overrode a stop ${times(overrides.n)}: ${pct(overrides.winRate)} win rate, `}
-            <Text style={{ fontWeight: '700', color: rColor(overrides.avgR) }}>{fmtR(overrides.avgR)}</Text>
-            {' on average.'}
-          </Body>
         </Row>
       ) : null}
       {overrides.n && skipped ? <Divider /> : null}
       {skipped ? (
-        <Row gap={S.md} style={{ alignItems: 'flex-start' }}>
-          <View style={styles.lineDot}>
-            <ToneDot tone="jade" size={8} />
-          </View>
-          <View style={{ flex: 1, gap: 2 }}>
-            <Body color={C.jade} style={{ fontWeight: '600' }}>
+        <Row gap={S.md}>
+          <ToneBadge icon={DoorOpen} tone="jade" size={36} />
+          <View style={{ flex: 1, gap: 1 }}>
+            <Sub color={C.jade} style={{ fontFamily: F.bold }}>
               {`Walked away ${times(skipped)}`}
-            </Body>
+            </Sub>
             <Small>Every skip is a rule kept.</Small>
           </View>
         </Row>
       ) : null}
-    </Surface>
+    </Card>
   );
 }
 
@@ -203,6 +413,7 @@ export function TradeRow({ trade, onPress }: { trade: Trade; onPress: () => void
   const o = outcome(trade);
   const closed = trade.taken && !!trade.result;
   const hasR = closed && trade.r !== undefined;
+  const isOpen = trade.taken && !trade.result;
   const label = [
     clock(trade.ts),
     o.label,
@@ -210,6 +421,7 @@ export function TradeRow({ trade, onPress }: { trade: Trade; onPress: () => void
     trade.emotions.join(', ') || null,
     trade.overridden ? 'Override' : null,
     trade.followedRules === false ? 'Broke rules' : null,
+    !trade.taken ? `Gate said ${trade.verdict}` : null,
   ]
     .filter(Boolean)
     .join(', ');
@@ -222,60 +434,155 @@ export function TradeRow({ trade, onPress }: { trade: Trade; onPress: () => void
       accessibilityLabel={label}
       accessibilityHint={trade.taken ? (closed ? 'Edit the result' : 'Log the result') : undefined}
       style={({ pressed }) => [styles.tradeRow, pressed && { opacity: 0.6 }]}>
-      <Display size={T.h2} weight="semi" color={C.haze} style={styles.clock}>
-        {clock(trade.ts)}
-      </Display>
+      <ToneBadge icon={outcomeIcon(trade)} tone={o.tone} size={42} />
       <View style={{ flex: 1, gap: 6 }}>
-        <View style={styles.markers}>
-          <Badge label={o.label} tone={o.tone} />
-          {trade.overridden ? (
-            <Small color={C.coral} style={{ fontWeight: '600' }}>
-              Override
-            </Small>
-          ) : null}
-          {trade.followedRules === false ? (
-            <Small color={C.coral} style={{ fontWeight: '600' }}>
-              Broke rules
-            </Small>
-          ) : null}
+        <Row gap={S.sm} style={{ alignItems: 'baseline' }}>
+          <Body style={{ fontFamily: F.bold }}>{clock(trade.ts)}</Body>
+          <Small color={toneFg(o.tone)} style={{ fontFamily: F.semi }}>
+            {o.label}
+          </Small>
+        </Row>
+        <View style={[styles.wrap, { gap: 6 }]}>
+          {trade.emotions.map((e) => (
+            <MiniPill key={e} label={e} tone={emotionTone(e)} />
+          ))}
+          {trade.overridden ? <MiniPill label="Override" tone="coral" icon={OctagonX} flag /> : null}
+          {trade.followedRules === false ? <MiniPill label="Broke rules" tone="coral" icon={ShieldAlert} flag /> : null}
           {!trade.taken ? (
-            <Small color={toneColor(VERDICT[trade.verdict].tone)}>{`Gate said ${trade.verdict}`}</Small>
+            <MiniPill
+              label={`Gate said ${trade.verdict}`}
+              tone={VERDICT[trade.verdict].tone}
+              icon={VERDICT_ICON[trade.verdict]}
+              flag
+            />
           ) : null}
         </View>
-        <EmotionTags emotions={trade.emotions} />
-        {trade.plan ? (
-          <Small color={C.faint} numberOfLines={1}>
-            {trade.plan}
-          </Small>
-        ) : null}
       </View>
       {hasR ? (
-        <Display size={T.h2} color={rColor(trade.r ?? 0)} style={{ marginTop: 1 }}>
+        <Display size={19} color={rColor(trade.r ?? 0)}>
           {fmtR(trade.r ?? 0)}
         </Display>
+      ) : isOpen ? (
+        <Row gap={2}>
+          <Small color={C.tangerine} style={{ fontFamily: F.bold }}>
+            Log result
+          </Small>
+          <Icon icon={ChevronRight} size={16} color={C.tangerine} />
+        </Row>
       ) : null}
     </Pressable>
   );
 }
 
+export function DayCard({ group, onOpen }: { group: DayGroup; onOpen: (id: string) => void }) {
+  const openCount = group.trades.filter((t) => t.taken && !t.result).length;
+  return (
+    <Card style={{ gap: S.md }}>
+      <Row style={{ justifyContent: 'space-between' }}>
+        <Row gap={S.sm} style={{ alignItems: 'baseline', flex: 1 }}>
+          <Display size={17} weight="bold">
+            {dayLabel(group.ts)}
+          </Display>
+          <Small>{count(group.trades.length, 'entry', 'entries')}</Small>
+        </Row>
+        {group.closed ? (
+          <Pill label={fmtR(group.netR)} tone={rTone(group.netR)} />
+        ) : openCount ? (
+          <Pill label={`${openCount} open`} tone="tangerine" />
+        ) : null}
+      </Row>
+      <Divider />
+      <View style={{ gap: S.md }}>
+        {group.trades.map((t) => (
+          <TradeRow key={t.id} trade={t} onPress={() => onOpen(t.id)} />
+        ))}
+      </View>
+    </Card>
+  );
+}
+
+/* ---------- trade recap (result modal) ---------- */
+
+export function TradeRecap({ trade }: { trade: Trade }) {
+  const o = outcome(trade);
+  const v = VERDICT[trade.verdict];
+  return (
+    <Card style={{ gap: S.lg }}>
+      <Row gap={S.md}>
+        <ToneBadge icon={outcomeIcon(trade)} tone={o.tone} size={48} />
+        <View style={{ flex: 1, gap: 1 }}>
+          <Display size={24}>{clock(trade.ts)}</Display>
+          <Small numberOfLines={1}>{whenLabel(trade.ts)}</Small>
+        </View>
+        <Pill icon={VERDICT_ICON[trade.verdict]} label={`Gate said ${v.word.toLowerCase()}`} tone={v.tone} />
+      </Row>
+      {trade.overridden ? (
+        <View style={[styles.flagLine, { backgroundColor: alpha(C.coral, 0.12) }]}>
+          <Icon icon={OctagonX} size={16} color={C.coral} />
+          <Small color={C.coral} style={{ fontFamily: F.semi, flex: 1 }}>
+            You took it through a stop.
+          </Small>
+        </View>
+      ) : null}
+      <Divider />
+      <View style={{ gap: S.sm }}>
+        <Small color={C.faint}>You felt</Small>
+        <EmotionPills emotions={trade.emotions} />
+      </View>
+      <View style={{ gap: 4 }}>
+        <Small color={C.faint}>Plan</Small>
+        {trade.plan ? <Body>{trade.plan}</Body> : <Sub color={C.faint}>No plan written</Sub>}
+      </View>
+    </Card>
+  );
+}
+
+/* ---------- empty journal ---------- */
+
+export function StepRow({ n, icon, title, detail }: { n: number; icon: LucideIcon; title: string; detail: string }) {
+  return (
+    <View style={styles.stepRow} accessible accessibilityLabel={`Step ${n}: ${title}. ${detail}`}>
+      <IconBadge icon={icon} size={40} />
+      <View style={{ flex: 1, gap: 1 }}>
+        <Sub color={C.mist} style={{ fontFamily: F.bold }}>
+          {title}
+        </Sub>
+        <Small>{detail}</Small>
+      </View>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  tags: { flexDirection: 'row', flexWrap: 'wrap', columnGap: S.md, rowGap: S.xs },
-  badge: { borderRadius: Radius.pill, paddingHorizontal: 10, paddingVertical: 3 },
-  badgeText: { fontFamily: F.body, fontSize: T.small, fontWeight: '700' },
-  track: {
+  wrap: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center' },
+  mini: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: C.raised,
+    gap: 5,
+    height: 24,
+    paddingHorizontal: 9,
+    borderRadius: Radius.pill,
   },
+  miniDot: { width: 6, height: 6, borderRadius: 3 },
+  miniText: { fontFamily: F.semi, fontSize: 12, lineHeight: 16 },
+  toneCard: { borderRadius: Radius.surface, borderWidth: 1, padding: S.lg, gap: S.md },
+  ruleCard: { flex: 1, gap: S.sm },
+  barBox: { height: 16, justifyContent: 'center' },
+  track: { flexDirection: 'row', height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.06)', overflow: 'hidden' },
   half: { flex: 1, height: '100%', flexDirection: 'row' },
-  fill: { height: '100%' },
-  fillLeft: { borderTopLeftRadius: 4, borderBottomLeftRadius: 4 },
-  fillRight: { borderTopRightRadius: 4, borderBottomRightRadius: 4 },
-  zero: { width: 2, height: 14, borderRadius: 1, backgroundColor: C.faint },
-  lineDot: { height: 24, justifyContent: 'center' },
-  tradeRow: { flexDirection: 'row', alignItems: 'flex-start', gap: S.md, minHeight: 44, paddingVertical: 2 },
-  clock: { width: 52, marginTop: 1 },
-  markers: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: S.sm, rowGap: S.xs },
+  fill: { height: '100%', borderRadius: 4 },
+  zero: {
+    position: 'absolute',
+    left: '50%',
+    marginLeft: -1,
+    width: 2,
+    height: 16,
+    borderRadius: 1,
+    backgroundColor: 'rgba(242,245,251,0.35)',
+  },
+  rateTrack: { height: 6, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.08)', overflow: 'hidden', marginVertical: 2 },
+  rateFill: { height: '100%', borderRadius: 3 },
+  tradeRow: { flexDirection: 'row', alignItems: 'center', gap: S.md, minHeight: 48 },
+  flagLine: { flexDirection: 'row', alignItems: 'center', gap: S.sm, borderRadius: 12, paddingHorizontal: S.md, paddingVertical: 10 },
+  stepRow: { flexDirection: 'row', alignItems: 'center', gap: S.md },
 });

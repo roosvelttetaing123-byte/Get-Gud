@@ -1,26 +1,59 @@
 import { router, useLocalSearchParams } from 'expo-router';
+import {
+  Calculator,
+  Check,
+  Minus,
+  NotebookPen,
+  OctagonX,
+  SearchX,
+  ShieldAlert,
+  ShieldCheck,
+  Trash2,
+  TrendingDown,
+  TrendingUp,
+  type LucideIcon,
+} from 'lucide-react-native';
 import React, { useState } from 'react';
-import { Alert, View } from 'react-native';
+import { View } from 'react-native';
 
-import { C, S, T, toneColor, type Tone } from '@/constants/theme';
-import { AFTER_EMOTIONS, fmtR, timeAgo, tradingToday } from '@/lib/derive';
+import { C, S, T, type PastelName } from '@/constants/theme';
+import { alpha, parseR, rColor, signR } from '@/features/journal/format';
+import { HintRow, ToneBadge, TradeRecap } from '@/features/journal/parts';
+import { SheetScreen } from '@/features/journal/SheetScreen';
+import { useConfirm } from '@/features/settings/confirm';
+import { AFTER_EMOTIONS, fmtR, tradingToday } from '@/lib/derive';
 import { haptic } from '@/lib/haptics';
 import { actions, getState, isToday, useStore, type Result, type Trade } from '@/lib/store';
-import { Body, Button, Chip, Display, Divider, Field, Row, Screen, Section, Segmented, Small, Sub, Surface } from '@/ui';
-import { clock, parseR, rColor, signR, VERDICT } from '@/features/journal/format';
-import { EmotionTags } from '@/features/journal/parts';
-import { SheetScreen } from '@/features/journal/SheetScreen';
+import {
+  Body,
+  Button,
+  Card,
+  Chip,
+  Display,
+  Field,
+  Grid,
+  Hero,
+  IconBadge,
+  Pill,
+  Row,
+  Screen,
+  Section,
+  Small,
+  Sub,
+  Tile,
+} from '@/ui';
 
-const RESULTS: { value: Result; label: string; tone: Tone }[] = [
-  { value: 'win', label: 'Win', tone: 'jade' },
-  { value: 'loss', label: 'Loss', tone: 'coral' },
-  { value: 'be', label: 'Break-even', tone: 'neutral' },
+const RESULTS: { value: Result; label: string; hint: string; pastel: PastelName; icon: LucideIcon }[] = [
+  { value: 'win', label: 'Win', hint: 'Above 0R', pastel: 'mint', icon: TrendingUp },
+  { value: 'loss', label: 'Loss', hint: 'Below 0R', pastel: 'rose', icon: TrendingDown },
+  // Two words so the narrow tile wraps between them, not at a hyphen.
+  { value: 'be', label: 'Break even', hint: 'Around 0R', pastel: 'sky', icon: Minus },
 ];
 
 type YesNo = 'yes' | 'no';
-const RULES: { value: YesNo; label: string; tone: Tone }[] = [
-  { value: 'yes', label: 'Yes', tone: 'jade' },
-  { value: 'no', label: 'No', tone: 'coral' },
+const RULES: { value: YesNo; label: string; hint: string; pastel: PastelName; icon: LucideIcon }[] = [
+  { value: 'yes', label: 'Yes', hint: 'Every rule kept', pastel: 'mint', icon: ShieldCheck },
+  { value: 'no', label: 'No', hint: 'Broke at least one', pastel: 'rose', icon: ShieldAlert },
 ];
 
 const QUICK_R = [-1, 1, 2, 3];
@@ -41,8 +74,11 @@ export default function TradeResultScreen() {
   if (!trade) {
     return (
       <Screen modal>
-        <Display size={T.hero}>Trade not found</Display>
-        <Body color={C.haze}>It may have been deleted.</Body>
+        <IconBadge icon={SearchX} size={56} color={C.haze} />
+        <View style={{ gap: S.sm }}>
+          <Display size={T.hero}>Trade not found</Display>
+          <Body color={C.haze}>It may have been deleted.</Body>
+        </View>
         <Button label="Done" onPress={close} />
       </Screen>
     );
@@ -71,6 +107,8 @@ function ResultForm({ trade, onDelete }: { trade: Trade; onDelete: () => void })
   const [after, setAfter] = useState<string[]>(trade.emotionsAfter ?? []);
   const [note, setNote] = useState(trade.note ?? '');
   const [limit, setLimit] = useState<string | null>(null);
+  // System alert on iOS; an in-app dialog on web, where react-native-web's Alert does nothing.
+  const { confirm, dialog } = useConfirm();
 
   const parsed = parseR(rText);
   const invalid = rText.trim() !== '' && parsed === undefined;
@@ -112,108 +150,135 @@ function ResultForm({ trade, onDelete }: { trade: Trade; onDelete: () => void })
   };
 
   const confirmDelete = () =>
-    Alert.alert(
-      'Delete this trade?',
-      'It comes out of your journal and your stats. This can’t be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete trade', style: 'destructive', onPress: onDelete },
-      ],
-      { userInterfaceStyle: 'dark' },
-    );
+    confirm({
+      title: 'Delete this trade?',
+      message: 'It comes out of your journal and your stats. This can’t be undone.',
+      confirmLabel: 'Delete trade',
+      cancelLabel: 'Keep trade',
+      icon: Trash2,
+      onConfirm: onDelete,
+    });
 
   if (limit) {
     const reason = limit.replace(/\s*Done for today\.?$/, '') || limit;
     return (
       <SheetScreen>
-        <Sub>Result saved</Sub>
-        <Surface tone="coral" style={{ gap: S.lg, paddingVertical: S.xl }}>
-          <Display size={T.hero} color={C.coral}>
-            Done for today.
-          </Display>
-          <Body>{reason}</Body>
+        <Pill icon={Check} label="Result saved" tone="jade" />
+        <Card tone="coral" style={{ gap: S.lg, padding: S.xl }}>
+          <IconBadge icon={OctagonX} color={C.coral} bg={alpha(C.coral, 0.18)} size={56} />
+          <View style={{ gap: S.sm }}>
+            <Display size={T.hero} color={C.coral}>
+              Done for today.
+            </Display>
+            <Body>{reason}</Body>
+          </View>
           <Sub color={C.mist}>Stopping now is the trade that protects your account. The setups come back tomorrow.</Sub>
-          <Button label="Close the charts" onPress={close} style={{ marginTop: S.sm }} />
-        </Surface>
+          <Button label="Close the charts" onPress={close} style={{ marginTop: S.xs }} />
+        </Card>
       </SheetScreen>
     );
   }
 
-  const verdict = VERDICT[trade.verdict];
+  // What will be saved: the signed R, or 0R for a break-even with nothing typed.
+  const shown = invalid ? undefined : (preview ?? (result === 'be' ? 0 : undefined));
+  const readoutCaption = invalid
+    ? 'Use a number, like 2 or -1.'
+    : shown === undefined
+      ? 'Type it or tap a quick value'
+      : result
+        ? `Saved as a ${result === 'be' ? 'break-even' : result}`
+        : 'Choose a result to save';
 
   return (
     <SheetScreen>
-      <Row style={{ justifyContent: 'space-between' }} gap={S.md}>
-        <Display size={T.hero} style={{ flex: 1 }} numberOfLines={1}>
-          {editing ? 'Edit result' : 'Log result'}
-        </Display>
-        <Button label="Cancel" kind="ghost" onPress={close} />
-      </Row>
+      <Hero
+        context={editing ? 'Closed trade' : 'Open trade'}
+        title={editing ? 'Edit result' : 'Log result'}
+        right={<Button label="Cancel" kind="ghost" onPress={close} />}
+      />
 
-      <Surface>
-        <Row style={{ justifyContent: 'space-between', alignItems: 'baseline' }}>
-          <Display size={T.stat}>{clock(trade.ts)}</Display>
-          <Sub>{timeAgo(trade.ts)}</Sub>
-        </Row>
-        <Divider />
-        <RecapLine label="Gate said">
-          <Display size={T.h2} color={toneColor(verdict.tone)}>
-            {verdict.word}
-          </Display>
-          {trade.overridden ? <Small color={C.coral}>You took it through a stop.</Small> : null}
-        </RecapLine>
-        <RecapLine label="You felt">
-          <View style={{ paddingTop: 2 }}>
-            <EmotionTags emotions={trade.emotions} />
-          </View>
-        </RecapLine>
-        <RecapLine label="Plan">
-          {trade.plan ? <Body>{trade.plan}</Body> : <Sub color={C.faint}>No plan written</Sub>}
-        </RecapLine>
-      </Surface>
+      <TradeRecap trade={trade} />
 
       <Section title="Result">
-        <Segmented options={RESULTS} value={result} onChange={setResult} />
-      </Section>
-
-      <Section
-        title="R multiple"
-        aside={
-          preview !== undefined ? (
-            <Display size={T.h2} color={rColor(preview)}>
-              {fmtR(preview)}
-            </Display>
-          ) : undefined
-        }>
-        <Field
-          value={rText}
-          onChangeText={setRText}
-          placeholder="e.g. 2 or -1"
-          keyboardType="numbers-and-punctuation"
-          returnKeyType="done"
-          accessibilityLabel="R multiple"
-        />
-        <Row gap={S.sm} style={{ flexWrap: 'wrap' }}>
-          {QUICK_R.map((v) => (
-            <Chip
-              key={v}
-              label={quickLabel(v)}
-              tone={v < 0 ? 'coral' : 'jade'}
-              selected={preview === v}
-              onPress={() => pickR(v)}
+        <Grid columns={3} gap={S.sm}>
+          {RESULTS.map((o) => (
+            <Tile
+              key={o.value}
+              title={o.label}
+              subtitle={o.hint}
+              icon={o.icon}
+              pastel={o.pastel}
+              selected={result === o.value}
+              accessibilityRole="radio"
+              onPress={() => setResult(o.value)}
             />
           ))}
-        </Row>
-        {invalid ? (
-          <Small color={C.tangerine}>Use a number, like 2 or -1.</Small>
-        ) : flipped ? (
-          <Small>{result === 'loss' ? 'Losses are saved as negative R.' : 'Wins are saved as positive R.'}</Small>
-        ) : null}
+        </Grid>
+      </Section>
+
+      <Section title="R multiple">
+        <Card style={{ gap: S.lg }}>
+          <Row gap={S.md}>
+            <View style={{ flex: 1, gap: 2 }}>
+              <Display
+                size={44}
+                color={shown === undefined ? C.faint : rColor(shown)}
+                style={{ letterSpacing: -1.2 }}>
+                {shown === undefined ? '0R' : fmtR(shown)}
+              </Display>
+              <Small color={invalid ? C.tangerine : C.haze}>{readoutCaption}</Small>
+            </View>
+            {shown === undefined ? (
+              <ToneBadge icon={Calculator} tone="neutral" size={52} />
+            ) : (
+              <ToneBadge
+                icon={shown > 0 ? TrendingUp : shown < 0 ? TrendingDown : Minus}
+                tone={shown > 0 ? 'jade' : shown < 0 ? 'coral' : 'neutral'}
+                size={52}
+              />
+            )}
+          </Row>
+          <Field
+            value={rText}
+            onChangeText={setRText}
+            placeholder="e.g. 2 or -1"
+            keyboardType="numbers-and-punctuation"
+            returnKeyType="done"
+            accessibilityLabel="R multiple"
+          />
+          <Row gap={S.sm} style={{ flexWrap: 'wrap' }}>
+            {QUICK_R.map((v) => (
+              <Chip
+                key={v}
+                label={`${quickLabel(v)}R`}
+                tone={v < 0 ? 'coral' : 'jade'}
+                selected={preview === v}
+                onPress={() => pickR(v)}
+              />
+            ))}
+          </Row>
+          {flipped ? (
+            <Small>{result === 'loss' ? 'Losses are saved as negative R.' : 'Wins are saved as positive R.'}</Small>
+          ) : null}
+        </Card>
       </Section>
 
       <Section title="Did you follow your rules?">
-        <Segmented options={RULES} value={followed} onChange={setFollowed} />
-        {followed === 'no' ? <Small>Logged, not judged. This is what the journal is for.</Small> : null}
+        <Grid gap={S.md}>
+          {RULES.map((o) => (
+            <Tile
+              key={o.value}
+              title={o.label}
+              subtitle={o.hint}
+              icon={o.icon}
+              pastel={o.pastel}
+              selected={followed === o.value}
+              accessibilityRole="radio"
+              onPress={() => setFollowed(o.value)}
+            />
+          ))}
+        </Grid>
+        {followed === 'no' ? <HintRow icon={NotebookPen}>Logged, not judged. This is what the journal is for.</HintRow> : null}
       </Section>
 
       <Section title="How do you feel now?">
@@ -235,7 +300,7 @@ function ResultForm({ trade, onDelete }: { trade: Trade; onDelete: () => void })
       </Section>
 
       <View style={{ gap: S.md }}>
-        <Button label="Save result" onPress={save} disabled={!canSave} />
+        <Button kind="accent" icon={Check} label="Save result" onPress={save} disabled={!canSave} />
         {!result ? (
           <Small color={C.faint} style={{ textAlign: 'center' }}>
             Choose win, loss or break-even to save.
@@ -243,16 +308,8 @@ function ResultForm({ trade, onDelete }: { trade: Trade; onDelete: () => void })
         ) : null}
       </View>
 
-      <Button label="Delete trade" kind="danger" onPress={confirmDelete} style={{ marginTop: S.lg }} />
+      <Button label="Delete trade" kind="danger" icon={Trash2} onPress={confirmDelete} style={{ marginTop: S.sm }} />
+      {dialog}
     </SheetScreen>
-  );
-}
-
-function RecapLine({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <Row gap={S.md} style={{ alignItems: 'flex-start' }}>
-      <Sub style={{ width: 84 }}>{label}</Sub>
-      <View style={{ flex: 1, gap: S.xs }}>{children}</View>
-    </Row>
   );
 }

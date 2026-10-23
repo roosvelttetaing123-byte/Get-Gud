@@ -3,7 +3,7 @@
  * Pure functions only: formatting, grouping and R parsing. Stats live in src/lib/derive.ts.
  */
 import { C, type Tone } from '@/constants/theme';
-import { round } from '@/lib/derive';
+import { round, timeAgo } from '@/lib/derive';
 import { dayKey, type Result, type Trade, type Verdict } from '@/lib/store';
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -73,6 +73,43 @@ export function signR(r: number, result: Result) {
   if (result === 'loss') return -Math.abs(r);
   if (result === 'win') return Math.abs(r);
   return r;
+}
+
+/** A hex token as rgba, for soft overlays of a meaning colour. */
+export function alpha(hex: string, a: number) {
+  const n = parseInt(hex.slice(1, 7), 16);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+}
+
+const closedInOrder = (trades: Trade[]) =>
+  trades.filter((t) => t.taken && t.result).sort((a, b) => (a.closedTs ?? a.ts) - (b.closedTs ?? b.ts));
+
+/** Cumulative R after each closed trade, in the order they closed, starting from 0. */
+export function equityCurve(trades: Trade[]): number[] {
+  const out = [0];
+  for (const t of closedInOrder(trades)) out.push(round(out[out.length - 1] + (t.r ?? 0)));
+  return out;
+}
+
+/** The best single closed trade in R, if any trade closed above zero. */
+export function bestR(trades: Trade[]): number | undefined {
+  const rs = closedInOrder(trades).map((t) => t.r ?? 0);
+  const best = Math.max(...rs);
+  return rs.length && best > 0 ? best : undefined;
+}
+
+/** "Today · 2 h ago" for today's entries, otherwise just the day: "Yesterday", "Wed 21 Oct". */
+export function whenLabel(ts: number, now = new Date()) {
+  const day = dayLabel(ts, now);
+  return day === 'Today' ? `Today · ${timeAgo(ts, now.getTime())}` : day;
+}
+
+/** "Since Sat 17 Oct", "Since yesterday", "Started today". */
+export function sinceLabel(ts: number, now = new Date()) {
+  const label = dayLabel(ts, now);
+  if (label === 'Today') return 'Started today';
+  if (label === 'Yesterday') return 'Since yesterday';
+  return `Since ${label}`;
 }
 
 export interface DayGroup {
