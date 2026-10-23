@@ -9,30 +9,33 @@ A discipline and emotion-control app for iPhone, built for trading and for life.
 
 Everything is stored only on the phone. No account, no server.
 
-## Run it on your iPhone (no Mac needed)
+## Install on your iPhone
 
-1. Install **Expo Go** from the App Store on your iPhone.
-2. On your computer (Windows is fine), install Node.js 20+.
-3. In this folder:
-   ```bash
-   npm install
-   npx expo start
-   ```
-4. Scan the QR code with the iPhone camera. Phone and computer must be on the same Wi-Fi (or run `npx expo start --tunnel`).
+1. Open **https://roosvelttetaing123-byte.github.io/Get-Gud/** in **Safari**.
+2. Tap **Share**, then **Add to Home Screen**.
 
-## Install it as a real app (TestFlight)
+It opens full-screen with its own icon. Updates arrive automatically the next time you open it.
 
-Needs an Apple Developer account (USD 99/year). No Mac required — builds run in Expo's cloud:
+## Publish an update
 
 ```bash
-npx eas-cli@latest login
-npx eas-cli@latest build --platform ios --profile production
-npx eas-cli@latest submit --platform ios
+npm install
+npm run deploy   # builds the web app and pushes it to the gh-pages branch
 ```
+
+## Develop
+
+```bash
+npx expo start --web    # live preview in the browser at /Get-Gud/
+npx expo start          # Expo Go on a phone
+npm run typecheck && npm run lint
+```
+
+A native App Store build is also possible later with EAS (`npx eas-cli@latest build --platform ios`).
 
 ## Stack
 
-Expo SDK 58, React Native 0.88, Expo Router (native tabs), TypeScript, `expo-sqlite` key-value store, `expo-haptics`, Big Shoulders Display.
+Expo SDK 58, React Native 0.88 + react-native-web, Expo Router, TypeScript, Plus Jakarta Sans, lucide icons, react-native-svg, expo-linear-gradient. Storage: `expo-sqlite` key-value store on native, `localStorage` on web.
 
 ```
 src/

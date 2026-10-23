@@ -1,58 +1,58 @@
-# Get Gud — design spec
+# Get Gud design spec (v2)
 
-A discipline and emotion-regulation app for a funded gold (XAU/USD) trader who trades evenings in GMT+7, and who also wants his daily life back on track. Its primary job: **interrupt the emotional decision in the moment** — before a revenge trade, before breaking a rule, before the late-night scroll — and make the patterns visible afterwards.
+Get Gud is a discipline and emotion-control app for RV, a funded gold (XAU/USD) trader in Cambodia, and for his daily life. It must look and feel like a polished, market-ready consumer app, on the level of Calm, Headspace or a premium fitness app. Its main job is to **interrupt the emotional decision in the moment** (revenge trade, broken rule, late-night scroll), then make the patterns visible afterwards.
 
-## Voice
+It ships mainly as an **installable web app** (GitHub Pages, added to the iPhone home screen), built with Expo and react-native-web. Everything must look right at a 390×844 phone viewport in a browser.
 
-- Plain, direct, sentence case. Short sentences. Talk like a calm trading mentor, not a cheerleader.
-- Never shame. A broken rule is data. "Gave in" is logged, not judged.
-- Buttons say exactly what happens: "Log entry", "Walk away", "Save result". Same verb through the flow.
-- No emoji in UI copy. No exclamation marks. No ALL-CAPS labels. No "→" on buttons. No "A · B · C" meta strings.
-- Empty states tell the user what to do next.
+**Reference screen: `src/app/(tabs)/index.tsx` (Today).** Match its level of polish, density and visual richness.
 
-## Colour = meaning (src/constants/theme.ts → `C`, `Tint`)
+## Visual language
 
-| Token | Hex | Means |
-|---|---|---|
-| ink | #121933 | background |
-| surface | #1B2445 | grouped content |
-| raised | #26315A | controls, chips, inputs |
-| mist | #E9ECF5 | primary text **and** primary button fill |
-| haze / faint | #8E97B5 / #5E6894 | secondary / tertiary text |
-| jade | #5ED6A4 | clear, kept, resisted, win |
-| tangerine | #FF9F43 | wait, caution, half size |
-| coral | #FF5E6C | stop, broken, gave in, loss |
-| gold | #E8B94A | **earned only** — streaks, milestones. Never a plain button. |
+- **Background:** deep night navy (`C.ink`). **Cards:** `Card`/`Surface` (navy, 1px hairline border, radius 22).
+- **One hero `ArtCard` per tab:** gradient artwork (`art="dawn" | "gold" | "calm" | "ember"`), bold white text, optionally a darker `footer` row of 2–3 stats. It's the first big thing under the header. Use a different artwork per tab: Today = dawn, Journal = gold, Urge = calm, Gate = ember on its first step.
+- **Pastel `Tile`s for anything you tap to choose:** promises, urge kinds, emotions, actions. Laid out in `Grid` (2 columns, or 3 for small items). Unselected tiles are dark with a pastel icon; selected tiles show the full pastel gradient with dark text. Rotate pastels with variety: sky, mint, butter, rose, lilac, peach.
+- **Icons everywhere they help**, from `lucide-react-native` (e.g. `import { Flame } from 'lucide-react-native'`). Use the kit's `Icon`, `IconBadge` (icon in a soft rounded square) and `IconButton`. Every list row and card title should usually have an IconBadge.
+- **Charts and rings** via `react-native-svg` (already installed): `ProgressRing` in the kit; draw sparklines and bars with Svg/Path/Rect. No chart libraries.
+- **Buttons:** `primary` (white), `accent` (blue gradient, for the main forward action on a screen), `secondary`, `ghost`, `danger`. Buttons can take an `icon`.
+- `Pill` for small status labels (streaks, verdicts, counts).
 
-Never introduce new hex values in screens. Use `Tint.*` for soft backgrounds behind a meaning colour.
+## Colour = meaning (`C`, `Tint`, `Pastel` in src/constants/theme.ts)
+
+- jade = clear, kept, resisted, win · tangerine = wait, caution · coral = stop, broken, gave in, loss · gold = earned (streaks)
+- accent blue = navigation, selection, primary forward action, never a verdict
+- Pastels are for tappable tiles, not for verdicts.
+- Never invent new hex values in screens. Use tokens; `rgba()` overlays of tokens are fine.
 
 ## Type
 
-- **Big Shoulders Display** (condensed) via `<Display>` — headlines, numbers, verdicts. Sentence case, big. Type is the visual element; let it be large.
-- **System (SF Pro)** via `<Body>`, `<Sub>`, `<Small>` — everything else.
-- Scale in `T`: verdict 128, hero 56, title 34, stat 28, h2 22, body 17, sub 15, small 13.
+- One family, **Plus Jakarta Sans**, through the kit: `Display` (headlines and numbers, weights extra/bold/semi), `Body`, `Sub`, `Small`.
+- Headlines are bold and tight. Big numbers carry stats. Sentence case everywhere.
 
 ## Layout
 
-- Single column, left-aligned, 20pt gutters, 24pt between sections (`Screen` handles it).
-- Each tab opens with `<Hero context="…" title="…" />`: one quiet context line, one big condensed title that states the situation (e.g. "3 of 4 kept", "Clear to look", "Sit with it").
-- Group with `<Surface>`; don't wrap every item in its own card. Lists inside a Surface are separated by `<Divider/>`.
-- Radii by hierarchy: surfaces 22, controls 14, chips pill.
-- Touch targets ≥ 44pt. Everything has an `accessibilityRole`/label (the kit does this).
+- Header at the top of each tab: `Hero` (context line plus bold title) with an optional right-side `IconButton`, or `Greeting` on Today.
+- 20pt gutters, 24pt between sections (`Screen` handles both). `Section` titles are bold, with an optional `aside` on the right.
+- The tab bar is absolute at the bottom; `Screen` already pads for it. Modals (`<Screen modal>`) have no tab bar.
+- Touch targets are at least 44pt. Give everything an accessibilityRole and label; the kit does this for its own components.
+
+## Voice
+
+- Plain, direct, calm, like a trading mentor. Never shame: a broken rule is data.
+- Buttons say exactly what happens ("Log entry", "Walk away", "Save result").
+- No emoji, no exclamation marks, no ALL-CAPS labels, no "→" on buttons.
+- Empty states tell the user what to do next.
 
 ## Motion
 
-- Spend boldness once: the **gate verdict** — the whole screen floods with the verdict colour and a giant word ("Clear." / "Wait." / "Stop.") scales in with one heavy haptic. That's the app's signature moment.
-- Urge screen's breathing circle is functional motion (it paces the breath).
-- No entrance animations on lists or cards. Respect `AccessibilityInfo.isReduceMotionEnabled()` — skip scale/loop animation when on.
+- The **gate verdict** is the signature moment: a full-screen colour flood, a giant word scaling in, and a haptic.
+- The Urge breathing circle is functional motion.
+- Press feedback is in the kit (scale/opacity). No decorative entrance animations. Respect reduce motion.
 
-## Data & logic
+## Data & logic (unchanged)
 
-- All state: `useStore()` from `src/lib/store.ts`; mutate only via `actions.*`.
-- All rules/derivations: `src/lib/derive.ts` (gate evaluation, today's trading state, streaks, stats). Add pure helpers there if needed, don't put business logic in screens.
-- Haptics: `haptic.*` from `src/lib/haptics.ts` (the kit already fires tap/press).
-- Routes: tabs `(tabs)/index|gate|journal|urge`; modals `settings`, `trade/[id]`. Navigate with `router` / `Link` from `expo-router`. The urge tab accepts `?kind=Revenge%20trade` to preset the urge type.
+- State comes from `useStore()` in `src/lib/store.ts`; mutate only through `actions.*`. Derivations live in `src/lib/derive.ts` and feature `logic.ts` files.
+- Routes: tabs are `(tabs)/index|gate|journal|urge`; modals are `settings` and `trade/[id]`.
 
 ## Kit (src/ui/index.tsx)
 
-`Screen, Hero, Section, Surface, Row, Divider, Display, Body, Sub, Small, Button(kind: primary|secondary|ghost|danger), Chip(tone), Scale, CheckRow, Segmented, Stepper, Field, Stat, IconButton`.
+`Screen, Hero, Greeting, Section, Surface/Card, ArtCard, Row, Divider, Display, Body, Sub, Small, Icon, IconBadge, Avatar, Pill, ProgressRing, Tile, Grid, Button, Chip, Scale, CheckRow, Segmented, Stepper, Field, Stat, IconButton`
