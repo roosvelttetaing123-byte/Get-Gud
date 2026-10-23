@@ -55,6 +55,8 @@ export default function UrgeScreen() {
     return (
       <ReviewView
         key="review"
+        kind={session.kind}
+        ridden={urges.filter((u) => u.outcome === 'resisted').length}
         before={session.before}
         seconds={seconds}
         saved={saved}

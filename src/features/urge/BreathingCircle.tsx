@@ -2,13 +2,16 @@
  * Paced breathing: in 4s, hold 4s, out 6s, looping.
  * Phases are computed from the session's absolute start time, so the pace
  * re-syncs correctly after the app has been in the background.
+ *
+ * useBreath() owns the pacing (phase word, a 0..1 "lung fullness" value, haptics);
+ * BreathingOrb is the pure visual that follows it.
  */
-import { memo, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Animated, AppState, Easing, StyleSheet, View } from 'react-native';
+import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
 
-import { C, S, T } from '@/constants/theme';
+import { C, Pastel } from '@/constants/theme';
 import { haptic } from '@/lib/haptics';
-import { Display } from '@/ui';
 
 const IN = 4000;
 const HOLD = 4000;
@@ -21,10 +24,6 @@ const PHASES = [
   { word: 'Hold', ms: HOLD, from: 1, to: 1 },
   { word: 'Breathe out', ms: OUT, from: 1, to: 0 },
 ] as const;
-
-const MIN_SCALE = 0.5;
-/** Room reserved under the circle for the phase word. */
-export const PHASE_WORD_SPACE = T.title + S.lg;
 
 /** Phase ordinal at an elapsed time: cycle * 3 + phase index. Strictly increasing. */
 function ordinalAt(elapsed: number): number {
@@ -39,16 +38,8 @@ function phaseOffset(ord: number): number {
   return Math.floor(ord / 3) * CYCLE + (idx > 0 ? IN : 0) + (idx > 1 ? HOLD : 0);
 }
 
-/** Memoised: the parent re-renders on every countdown tick; the circle only needs its own phase ticks. */
-export const BreathingCircle = memo(function BreathingCircle({
-  startAt,
-  size,
-  reduceMotion,
-}: {
-  startAt: number;
-  size: number;
-  reduceMotion: boolean;
-}) {
+/** Drives the breath from an absolute start time. Haptic tap on each natural phase change. */
+export function useBreath(startAt: number) {
   // A fresh object on every update, so an AppState resync re-runs the pacing effect
   // even when the phase hasn't changed.
   const [tick, setTick] = useState(() => ({ ord: ordinalAt(Date.now() - startAt) }));
@@ -92,38 +83,85 @@ export const BreathingCircle = memo(function BreathingCircle({
     return () => sub.remove();
   }, [startAt]);
 
-  const word = PHASES[tick.ord % 3].word;
-  // Reduce motion: no scaling, the disc only brightens and dims with the breath.
-  const discStyle = useMemo(
+  return { word: PHASES[tick.ord % 3].word, fullness };
+}
+
+/**
+ * Layered glow that swells with the breath: a wide soft halo and a brighter core,
+ * both radial gradients fading to transparent. With reduce motion it stays still
+ * and only brightens and dims.
+ */
+export const BreathingOrb = memo(function BreathingOrb({
+  fullness,
+  size,
+  reduceMotion,
+}: {
+  fullness: Animated.Value;
+  size: number;
+  reduceMotion: boolean;
+}) {
+  const id = useId().replace(/:/g, '');
+  const halo = size * 1.3;
+  const core = size * 0.78;
+
+  const haloStyle = useMemo(
     () =>
       reduceMotion
-        ? { opacity: fullness.interpolate({ inputRange: [0, 1], outputRange: [0.4, 1] }), transform: [{ scale: 0.8 }] }
+        ? { opacity: fullness.interpolate({ inputRange: [0, 1], outputRange: [0.3, 0.9] }), transform: [{ scale: 0.85 }] }
         : {
-            opacity: fullness.interpolate({ inputRange: [0, 1], outputRange: [0.75, 1] }),
-            transform: [{ scale: fullness.interpolate({ inputRange: [0, 1], outputRange: [MIN_SCALE, 1] }) }],
+            opacity: fullness.interpolate({ inputRange: [0, 1], outputRange: [0.45, 1] }),
+            transform: [{ scale: fullness.interpolate({ inputRange: [0, 1], outputRange: [0.55, 1] }) }],
+          },
+    [reduceMotion, fullness],
+  );
+  const coreStyle = useMemo(
+    () =>
+      reduceMotion
+        ? { opacity: fullness.interpolate({ inputRange: [0, 1], outputRange: [0.35, 1] }), transform: [{ scale: 0.85 }] }
+        : {
+            opacity: fullness.interpolate({ inputRange: [0, 1], outputRange: [0.8, 1] }),
+            transform: [{ scale: fullness.interpolate({ inputRange: [0, 1], outputRange: [0.58, 1] }) }],
           },
     [reduceMotion, fullness],
   );
 
   return (
-    <View style={styles.wrap}>
-      <View
-        accessibilityElementsHidden
-        importantForAccessibility="no-hide-descendants"
-        style={{ width: size, height: size }}>
-        <View style={[styles.guide, { width: size, height: size, borderRadius: size / 2 }]} />
-        <Animated.View style={[styles.disc, { width: size, height: size, borderRadius: size / 2 }, discStyle]} />
-      </View>
-      <Display size={T.title} style={styles.word}>
-        {word}
-      </Display>
+    <View
+      pointerEvents="none"
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      style={[styles.center, { width: size, height: size }]}>
+      <Animated.View style={[styles.layer, { width: halo, height: halo }, haloStyle]}>
+        <Svg width={halo} height={halo}>
+          <Defs>
+            <RadialGradient id={`halo${id}`} cx="50%" cy="50%" r="50%">
+              <Stop offset="0" stopColor={C.jade} stopOpacity={0.4} />
+              <Stop offset="0.45" stopColor={C.accent} stopOpacity={0.22} />
+              <Stop offset="1" stopColor={C.accent} stopOpacity={0} />
+            </RadialGradient>
+          </Defs>
+          <Circle cx={halo / 2} cy={halo / 2} r={halo / 2} fill={`url(#halo${id})`} />
+        </Svg>
+      </Animated.View>
+      <Animated.View style={[styles.layer, { width: core, height: core }, coreStyle]}>
+        <Svg width={core} height={core}>
+          <Defs>
+            <RadialGradient id={`core${id}`} cx="50%" cy="50%" r="50%" fx="38%" fy="32%">
+              <Stop offset="0" stopColor={Pastel.mint[1]} stopOpacity={0.75} />
+              <Stop offset="0.4" stopColor={C.jade} stopOpacity={0.5} />
+              <Stop offset="0.8" stopColor={C.accent} stopOpacity={0.32} />
+              <Stop offset="1" stopColor={C.accent} stopOpacity={0} />
+            </RadialGradient>
+          </Defs>
+          <Circle cx={core / 2} cy={core / 2} r={core / 2 - 1} fill={`url(#core${id})`} />
+          <Circle cx={core / 2} cy={core / 2} r={core / 2 - 1} fill="none" stroke="rgba(242,245,251,0.16)" strokeWidth={1.5} />
+        </Svg>
+      </Animated.View>
     </View>
   );
 });
 
 const styles = StyleSheet.create({
-  wrap: { alignItems: 'center', gap: S.lg },
-  guide: { position: 'absolute', borderWidth: 1, borderColor: C.line },
-  disc: { position: 'absolute', backgroundColor: C.raised, borderWidth: 2, borderColor: C.mist },
-  word: { textAlign: 'center' },
+  center: { alignItems: 'center', justifyContent: 'center' },
+  layer: { position: 'absolute' },
 });
