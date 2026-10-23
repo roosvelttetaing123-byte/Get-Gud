@@ -1,11 +1,15 @@
+import { Plus, Trash2, X, type LucideIcon } from 'lucide-react-native';
 import { Fragment, useState } from 'react';
-import { Alert, Pressable, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { C, S } from '@/constants/theme';
-import { Body, Button, Divider, Field, Row, Small, Sub, Surface } from '@/ui';
+import type { ConfirmAsk } from '@/features/settings/confirm';
+import { InsetDivider, RemoveButton, alpha } from '@/features/settings/parts';
+import { Body, Button, Card, Divider, Field, IconBadge, Row, Small, Sub } from '@/ui';
 
 /**
- * A list of short strings (trading rules, daily promises) with remove and add.
+ * A grouped card of short strings (trading rules, daily promises): one row per item with a badge
+ * and a remove button, and an add row at the bottom.
  * Removal asks first: deleting a rule mid-session is exactly the move this app exists to slow down.
  */
 export function EditableList({
@@ -14,7 +18,10 @@ export function EditableList({
   noun,
   placeholder,
   empty,
+  emptyIcon,
   removeNote,
+  badge,
+  confirm,
 }: {
   items: string[];
   onChange: (next: string[]) => void;
@@ -23,8 +30,12 @@ export function EditableList({
   placeholder: string;
   /** Shown when the list is empty. Tell the user what to do next. */
   empty: string;
+  emptyIcon: LucideIcon;
   /** Second line of the remove confirmation. */
   removeNote: string;
+  /** The badge on the left of each row. */
+  badge: (item: string, index: number) => React.ReactNode;
+  confirm: (ask: ConfirmAsk) => void;
 }) {
   const [draft, setDraft] = useState('');
   const text = draft.trim();
@@ -37,66 +48,65 @@ export function EditableList({
     setDraft('');
   };
 
-  const remove = (item: string) => {
-    Alert.alert(`Remove this ${noun}?`, `“${item}”\n\n${removeNote}`, [
-      { text: 'Keep it', style: 'cancel' },
-      { text: 'Remove', style: 'destructive', onPress: () => onChange(items.filter((i) => i !== item)) },
-    ]);
-  };
+  const remove = (item: string) =>
+    confirm({
+      title: `Remove this ${noun}?`,
+      quote: item,
+      message: removeNote,
+      confirmLabel: `Remove ${noun}`,
+      cancelLabel: 'Keep it',
+      icon: Trash2,
+      onConfirm: () => onChange(items.filter((i) => i !== item)),
+    });
 
   return (
-    <View style={{ gap: S.md }}>
+    <Card style={styles.card}>
       {items.length ? (
-        <Surface style={{ gap: 0, paddingVertical: S.xs }}>
-          {items.map((item, i) => (
-            <Fragment key={item}>
-              {i > 0 ? <Divider /> : null}
-              <Row gap={S.md} style={{ minHeight: 52, paddingVertical: S.xs }}>
-                <Body style={{ flex: 1 }}>{item}</Body>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={`Remove ${noun}: ${item}`}
-                  hitSlop={8}
-                  onPress={() => remove(item)}
-                  style={({ pressed }) => [
-                    { minHeight: 44, justifyContent: 'center', paddingLeft: S.sm },
-                    pressed && { opacity: 0.6 },
-                  ]}>
-                  <Sub color={C.coral}>Remove</Sub>
-                </Pressable>
-              </Row>
-            </Fragment>
-          ))}
-        </Surface>
+        items.map((item, i) => (
+          <Fragment key={item}>
+            {i > 0 ? <InsetDivider /> : null}
+            <Row gap={S.md} style={styles.item}>
+              {badge(item, i)}
+              <Body style={{ flex: 1 }}>{item}</Body>
+              <RemoveButton icon={X} label={`Remove ${noun}: ${item}`} onPress={() => remove(item)} />
+            </Row>
+          </Fragment>
+        ))
       ) : (
-        <Surface>
-          <Sub>{empty}</Sub>
-        </Surface>
+        <Row gap={S.md} style={styles.item}>
+          <IconBadge icon={emptyIcon} color={C.haze} bg={alpha(C.mist, 0.06)} />
+          <Sub style={{ flex: 1 }}>{empty}</Sub>
+        </Row>
       )}
 
-      <Row gap={S.sm}>
-        <View style={{ flex: 1 }}>
-          <Field
-            value={draft}
-            onChangeText={setDraft}
-            placeholder={placeholder}
-            accessibilityLabel={`New ${noun}`}
-            autoCapitalize="sentences"
-            returnKeyType="done"
-            submitBehavior={canAdd ? 'submit' : 'blurAndSubmit'}
-            onSubmitEditing={add}
-            style={{ minHeight: 50 }}
-          />
-        </View>
-        <Button
-          kind="secondary"
-          label={`Add ${noun}`}
-          onPress={add}
-          disabled={!canAdd}
-          style={{ minHeight: 50, paddingHorizontal: S.lg }}
-        />
-      </Row>
-      {dupe ? <Small>That one is already on the list.</Small> : null}
-    </View>
+      <Divider />
+
+      <View style={styles.addWrap}>
+        <Row gap={S.sm}>
+          <View style={{ flex: 1 }}>
+            <Field
+              value={draft}
+              onChangeText={setDraft}
+              placeholder={placeholder}
+              accessibilityLabel={`New ${noun}`}
+              autoCapitalize="sentences"
+              returnKeyType="done"
+              submitBehavior={canAdd ? 'submit' : 'blurAndSubmit'}
+              onSubmitEditing={add}
+              style={styles.field}
+            />
+          </View>
+          <Button kind="accent" icon={Plus} label="Add" onPress={add} disabled={!canAdd} />
+        </Row>
+        {dupe ? <Small color={C.tangerine}>That one is already on the list.</Small> : null}
+      </View>
+    </Card>
   );
 }
+
+const styles = StyleSheet.create({
+  card: { gap: 0, paddingVertical: S.xs },
+  item: { paddingVertical: S.md, minHeight: 64 },
+  addWrap: { gap: S.sm, paddingTop: S.md, paddingBottom: S.sm },
+  field: { height: 56, paddingVertical: 0, paddingHorizontal: 14 },
+});
