@@ -4,7 +4,7 @@ import { StyleSheet, View } from 'react-native';
 import { C, Pastel, S } from '@/constants/theme';
 import { timeAgo } from '@/lib/derive';
 import type { Urge } from '@/lib/store';
-import { ArtCard, Body, Button, Display, Grid, Hero, IconBadge, Pill, ProgressRing, Row, Screen, Section, Small, Sub, Tile } from '@/ui';
+import { ArtCard, Body, Button, Display, Grid, Hero, IconBadge, Pill, ProgressRing, Row, Screen, Section, Small, Sub, Tile } from '@/ui/legacy';
 
 import { URGE_KINDS, urgeRecord } from './model';
 import { IntensityControl, kindMeta, kindTint } from './visuals';

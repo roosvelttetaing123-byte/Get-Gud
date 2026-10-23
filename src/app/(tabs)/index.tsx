@@ -29,7 +29,7 @@ import {
   Stat,
   Sub,
   Tile,
-} from '@/ui';
+} from '@/ui/legacy';
 
 type Slept = 'yes' | 'no';
 

@@ -2,7 +2,7 @@ import { Text, View, Pressable, StyleSheet, type StyleProp, type ViewStyle } fro
 
 import { C, F, Pastel, R, S, type PastelName } from '@/constants/theme';
 import { haptic } from '@/lib/haptics';
-import { Divider, IconBadge, Small, Sub, type LucideIcon } from '@/ui';
+import { Divider, IconBadge, Small, Sub, type LucideIcon } from '@/ui/legacy';
 
 /** rgba() overlay of a token hex, so screens never invent colours. */
 export function alpha(hex: string, a: number) {

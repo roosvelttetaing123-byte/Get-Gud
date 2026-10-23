@@ -24,7 +24,7 @@ import { useToday } from '@/features/today/useToday';
 import { pastelAt, promiseIcon } from '@/features/today/visuals';
 import { promiseStreak } from '@/lib/derive';
 import { actions, useStore, type Settings } from '@/lib/store';
-import { ArtCard, Avatar, Button, Card, Display, Field, Hero, Row, Screen, Section, Small, Stepper } from '@/ui';
+import { ArtCard, Avatar, Button, Card, Display, Field, Hero, Row, Screen, Section, Small, Stepper } from '@/ui/legacy';
 
 type NumberKey = 'maxTrades' | 'maxLossStreak' | 'cooldownMin' | 'urgeMinutes';
 

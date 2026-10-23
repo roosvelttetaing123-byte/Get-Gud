@@ -9,7 +9,7 @@ import { AccessibilityInfo, Animated, View } from 'react-native';
 import { C, F, S } from '@/constants/theme';
 import type { GateResult } from '@/lib/derive';
 import { haptic } from '@/lib/haptics';
-import { Body, Icon, Small, Sub } from '@/ui';
+import { Body, Icon, Small, Sub } from '@/ui/legacy';
 
 import { FullBleed, GiantWord, InkButton, InkCard, InkChip, InkInput, InkPill, InkRule, TOP_ROW } from './ink';
 import { OVERRIDE_PHRASE, VERDICT } from './logic';

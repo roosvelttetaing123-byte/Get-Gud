@@ -18,7 +18,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { C, F, R as Radius, S, toneColor, type Tone } from '@/constants/theme';
 import { emotionTone, fmtR, timeAgo, type Bucket } from '@/lib/derive';
 import type { Trade } from '@/lib/store';
-import { Body, Button, Card, Display, Divider, Icon, IconBadge, Pill, Row, Small, Sub } from '@/ui';
+import { Body, Button, Card, Display, Divider, Icon, IconBadge, Pill, Row, Small, Sub } from '@/ui/legacy';
 
 import { EquityCurve } from './EquityCurve';
 import { alpha, clock, count, dayLabel, inSentence, outcome, pct, rColor, VERDICT, whenLabel, type DayGroup } from './format';

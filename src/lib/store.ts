@@ -24,10 +24,32 @@ export interface Trade {
   emotionsAfter?: string[];
   note?: string;
   closedTs?: number;
+  // v3 gate: State-of-Mind style check
+  valence?: number; // 1-7, very unpleasant → very pleasant
+  associations?: string[]; // e.g. "After a loss", "News"
+}
+
+export interface CheckIn {
+  at: number;
+  valence?: number; // 1-7 State of Mind
+  energy?: number; // 1-5
+  sleepHours?: number;
+  intention?: string; // one line for today
+}
+
+export interface DayClose {
+  at: number;
+  rating?: number; // 1-5 how the day went
+  win?: string; // one good thing
+  lesson?: string;
 }
 
 export interface DayLog {
   promises: Record<string, boolean>; // promise text -> kept
+  checkin?: CheckIn; // morning ritual
+  close?: DayClose; // evening ritual
+  frozen?: boolean; // a streak freeze protected this day
+  // v2 fields, still read for older data
   mood?: number; // 1-5
   energy?: number; // 1-5
   sleptWell?: boolean;
@@ -55,6 +77,9 @@ export interface Settings {
   maxLossStreak: number; // stop after N losses in a row today
   cooldownMin: number; // minutes to wait after a loss
   urgeMinutes: number; // default urge timer length
+  freezes: number; // streak freezes in the bank (max 3)
+  restDays: number[]; // weekdays (0=Sun) that never break the streak
+  onboarded: boolean;
 }
 
 export interface State {
@@ -63,6 +88,10 @@ export interface State {
   trades: Trade[]; // newest first
   days: Record<string, DayLog>; // key = dayKey()
   urges: Urge[]; // newest first
+  awards: Record<string, number>; // award id -> earned timestamp
+  seenAwards: string[]; // award ids already celebrated
+  lastReconciled?: string; // dayKey when streak freezes were last applied
+  freezeMark?: number; // 7-day blocks already credited with a freeze
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -79,13 +108,24 @@ export const DEFAULT_SETTINGS: Settings = {
   maxTrades: 3,
   maxLossStreak: 2,
   cooldownMin: 30,
-  urgeMinutes: 10,
+  urgeMinutes: 3,
+  freezes: 2,
+  restDays: [],
+  onboarded: false,
 };
 
 const KEY = 'getgud:v1';
 
 function fresh(): State {
-  return { version: 1, settings: { ...DEFAULT_SETTINGS }, trades: [], days: {}, urges: [] };
+  return {
+    version: 1,
+    settings: { ...DEFAULT_SETTINGS },
+    trades: [],
+    days: {},
+    urges: [],
+    awards: {},
+    seenAwards: [],
+  };
 }
 
 function load(): State {
@@ -93,11 +133,16 @@ function load(): State {
     const raw = kv.get(KEY);
     if (!raw) return fresh();
     const parsed = JSON.parse(raw) as Partial<State>;
-    return {
-      ...fresh(),
-      ...parsed,
-      settings: { ...DEFAULT_SETTINGS, ...(parsed.settings ?? {}) },
-    };
+    const settings = { ...DEFAULT_SETTINGS, ...(parsed.settings ?? {}) };
+    // Data from before onboarding existed: don't send an existing user through setup again.
+    if (parsed.settings && parsed.settings.onboarded === undefined) {
+      settings.onboarded = !!(
+        parsed.settings.name ||
+        parsed.trades?.length ||
+        Object.keys(parsed.days ?? {}).length
+      );
+    }
+    return { ...fresh(), ...parsed, settings };
   } catch {
     return fresh();
   }
@@ -190,6 +235,46 @@ export const actions = {
     const urge: Urge = { ...u, id: uid(), ts: Date.now() };
     commit({ ...state, urges: [urge, ...state.urges] });
     return urge;
+  },
+
+  /** Morning ritual. Merges into today's check-in. */
+  checkIn(key: string, data: Omit<CheckIn, 'at'>) {
+    const prev = state.days[key] ?? { promises: {} };
+    const checkin: CheckIn = { ...(prev.checkin ?? {}), ...data, at: prev.checkin?.at ?? Date.now() };
+    commit({ ...state, days: { ...state.days, [key]: { ...prev, checkin } } });
+  },
+
+  /** Evening ritual. */
+  closeDay(key: string, data: Omit<DayClose, 'at'>) {
+    const prev = state.days[key] ?? { promises: {} };
+    const close: DayClose = { ...(prev.close ?? {}), ...data, at: prev.close?.at ?? Date.now() };
+    commit({ ...state, days: { ...state.days, [key]: { ...prev, close } } });
+  },
+
+  /** Record newly earned awards (ids not already earned are stamped now). */
+  grantAwards(ids: string[]) {
+    const fresh = ids.filter((id) => !state.awards[id]);
+    if (!fresh.length) return;
+    const awards = { ...state.awards };
+    fresh.forEach((id) => (awards[id] = Date.now()));
+    commit({ ...state, awards });
+  },
+
+  markAwardsSeen(ids: string[]) {
+    const seen = new Set(state.seenAwards);
+    ids.forEach((id) => seen.add(id));
+    commit({ ...state, seenAwards: [...seen] });
+  },
+
+  /** Escape hatch for engagement logic (streak freezes etc.). The function must return a new object. */
+  mutate(fn: (s: State) => State) {
+    const next = fn(state);
+    if (next !== state) commit(next);
+  },
+
+  /** Replace everything with an imported backup (already validated by the caller). */
+  importState(next: State) {
+    commit({ ...fresh(), ...next, settings: { ...DEFAULT_SETTINGS, ...next.settings } });
   },
 
   resetAll() {

@@ -41,7 +41,7 @@ import {
   Small,
   Sub,
   Tile,
-} from '@/ui';
+} from '@/ui/legacy';
 
 const RESULTS: { value: Result; label: string; hint: string; pastel: PastelName; icon: LucideIcon }[] = [
   { value: 'win', label: 'Win', hint: 'Above 0R', pastel: 'mint', icon: TrendingUp },

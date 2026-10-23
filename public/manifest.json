@@ -1,16 +1,23 @@
 {
+  "id": "/Get-Gud/",
   "name": "Get Gud",
   "short_name": "Get Gud",
   "description": "Discipline and emotion control for trading and life.",
+  "lang": "en",
+  "dir": "ltr",
   "start_url": "/Get-Gud/",
   "scope": "/Get-Gud/",
   "display": "standalone",
   "orientation": "portrait",
-  "theme_color": "#0A1020",
-  "background_color": "#0A1020",
+  "theme_color": "#000000",
+  "background_color": "#000000",
+  "categories": ["productivity", "lifestyle", "health", "finance"],
+  "prefer_related_applications": false,
   "icons": [
-    { "src": "/Get-Gud/icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "/Get-Gud/icon-512.png", "sizes": "512x512", "type": "image/png" },
-    { "src": "/Get-Gud/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    { "src": "/Get-Gud/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/Get-Gud/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/Get-Gud/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/Get-Gud/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "/Get-Gud/apple-touch-icon.png", "sizes": "180x180", "type": "image/png", "purpose": "any" }
   ]
 }

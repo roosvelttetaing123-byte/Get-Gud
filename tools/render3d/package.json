@@ -1,0 +1,13 @@
+{
+  "name": "get-gud-render3d",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Headless three.js render pipeline for Get Gud pre-rendered 3D assets",
+  "type": "module",
+  "scripts": {
+    "render": "python3 render.py"
+  },
+  "dependencies": {
+    "three": "0.186.1"
+  }
+}

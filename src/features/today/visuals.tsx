@@ -21,7 +21,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { C, F, PASTELS, Pastel, S, type PastelName } from '@/constants/theme';
 import { haptic } from '@/lib/haptics';
-import { ProgressRing, Small } from '@/ui';
+import { ProgressRing, Small } from '@/ui/legacy';
 
 import { weekdayLetter } from './useToday';
 

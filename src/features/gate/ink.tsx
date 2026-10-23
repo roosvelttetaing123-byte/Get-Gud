@@ -25,7 +25,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { C, F, R, S, T, TAB_BAR_HEIGHT } from '@/constants/theme';
 import { haptic } from '@/lib/haptics';
-import { Display, Icon } from '@/ui';
+import { Display, Icon } from '@/ui/legacy';
 
 /** Ink at low alpha, for panels and fields that sit on the flood. */
 export const INK_08 = 'rgba(13,20,36,0.08)';

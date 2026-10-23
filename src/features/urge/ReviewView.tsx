@@ -6,7 +6,7 @@ import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
 
 import { C, R, S } from '@/constants/theme';
 import type { UrgeOutcome } from '@/lib/store';
-import { Body, Button, Display, Grid, Hero, Icon, IconBadge, Pill, Row, Screen, Section, Small, Surface, Tile } from '@/ui';
+import { Body, Button, Display, Grid, Hero, Icon, IconBadge, Pill, Row, Screen, Section, Small, Surface, Tile } from '@/ui/legacy';
 
 import { clock, spokenDuration } from './model';
 import { ChangeInline, IntensityControl, kindMeta, kindTint } from './visuals';

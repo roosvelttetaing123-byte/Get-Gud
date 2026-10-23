@@ -10,7 +10,7 @@ import { C, F, Pastel, PASTELS, R, S, T, Tint, toneColor, type Tone } from '@/co
 import { EMOTIONS, emotionTone, type TradingToday } from '@/lib/derive';
 import { haptic } from '@/lib/haptics';
 import type { Settings } from '@/lib/store';
-import { ArtCard, Body, Card, Display, Divider, Icon, IconBadge, Pill, ProgressRing, Row, Small, Sub } from '@/ui';
+import { ArtCard, Body, Card, Display, Divider, Icon, IconBadge, Pill, ProgressRing, Row, Small, Sub } from '@/ui/legacy';
 
 import { FACT_ICON, emotionLook, ruleIcon } from './look';
 import { GROUP_SHORT, sessionSummary, type Fact, type MeaningTone } from './logic';

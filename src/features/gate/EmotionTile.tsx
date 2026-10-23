@@ -10,7 +10,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { C, F, Pastel, R, S, type PastelName } from '@/constants/theme';
 import { haptic } from '@/lib/haptics';
-import { Icon } from '@/ui';
+import { Icon } from '@/ui/legacy';
 
 /** "Frustrated", the widest emotion label, in ems of Plus Jakarta Sans Bold. */
 const WIDEST_EM = 5.14;

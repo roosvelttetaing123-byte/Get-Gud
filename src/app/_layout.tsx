@@ -1,48 +1,42 @@
-import {
-  PlusJakartaSans_400Regular,
-  PlusJakartaSans_500Medium,
-  PlusJakartaSans_600SemiBold,
-  PlusJakartaSans_700Bold,
-  PlusJakartaSans_800ExtraBold,
-  useFonts,
-} from '@expo-google-fonts/plus-jakarta-sans';
-import { DarkTheme, Stack, ThemeProvider } from 'expo-router';
+import { DarkTheme, Stack, ThemeProvider, router } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 
 import { C } from '@/constants/theme';
+import { AwardWatcher } from '@/features/awards/AwardWatcher';
+import { initPwa } from '@/lib/pwa';
+import { getState } from '@/lib/store';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 const theme = {
   ...DarkTheme,
-  colors: { ...DarkTheme.colors, background: C.ink, card: C.ink, text: C.mist, primary: C.mist, border: C.line },
+  colors: { ...DarkTheme.colors, background: C.bg, card: C.bg, text: C.label, primary: C.tint, border: C.separator },
 };
 
 export default function RootLayout() {
-  const [loaded, error] = useFonts({
-    PlusJakartaSans_400Regular,
-    PlusJakartaSans_500Medium,
-    PlusJakartaSans_600SemiBold,
-    PlusJakartaSans_700Bold,
-    PlusJakartaSans_800ExtraBold,
-  });
-
   useEffect(() => {
-    if (loaded || error) SplashScreen.hideAsync().catch(() => {});
-  }, [loaded, error]);
-
-  if (!loaded && !error) return null;
+    // System font (SF Pro): nothing to load, so the app is interactive immediately.
+    SplashScreen.hideAsync().catch(() => {});
+    initPwa();
+    if (!getState().settings.onboarded) {
+      const t = setTimeout(() => router.push('/onboarding'), 0);
+      return () => clearTimeout(t);
+    }
+  }, []);
 
   return (
     <ThemeProvider value={theme}>
       <StatusBar style="light" />
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: C.ink } }}>
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: C.bg } }}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="settings" options={{ presentation: 'modal' }} />
         <Stack.Screen name="trade/[id]" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="awards" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="onboarding" options={{ presentation: 'fullScreenModal', gestureEnabled: false }} />
       </Stack>
+      <AwardWatcher />
     </ThemeProvider>
   );
 }

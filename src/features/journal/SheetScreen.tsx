@@ -3,7 +3,7 @@ import { ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { S } from '@/constants/theme';
-import { Screen } from '@/ui';
+import { Screen } from '@/ui/legacy';
 
 /**
  * <Screen modal> for forms. The kit's scrolling Screen doesn't lift focused fields above the

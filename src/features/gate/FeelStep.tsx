@@ -5,7 +5,7 @@ import { useWindowDimensions, View } from 'react-native';
 import { S } from '@/constants/theme';
 import type { TradingToday } from '@/lib/derive';
 import type { Settings } from '@/lib/store';
-import { Button, Grid, Screen } from '@/ui';
+import { Button, Grid, Screen } from '@/ui/legacy';
 
 import { EmotionTile, emotionTitleSize } from './EmotionTile';
 

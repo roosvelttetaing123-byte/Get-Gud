@@ -5,7 +5,7 @@ import { StyleSheet, View } from 'react-native';
 import { C, S } from '@/constants/theme';
 import type { ConfirmAsk } from '@/features/settings/confirm';
 import { InsetDivider, RemoveButton, alpha } from '@/features/settings/parts';
-import { Body, Button, Card, Divider, Field, IconBadge, Row, Small, Sub } from '@/ui';
+import { Body, Button, Card, Divider, Field, IconBadge, Row, Small, Sub } from '@/ui/legacy';
 
 /**
  * A grouped card of short strings (trading rules, daily promises): one row per item with a badge

@@ -6,7 +6,7 @@ import { StyleSheet, View, type LayoutChangeEvent } from 'react-native';
 
 import { C, F, Pastel, R, S } from '@/constants/theme';
 import { haptic } from '@/lib/haptics';
-import { Art, Body, Button, Display, Pill, ProgressRing, Screen } from '@/ui';
+import { Art, Body, Button, Display, Pill, ProgressRing, Screen } from '@/ui/legacy';
 
 import { BreathingOrb, useBreath } from './BreathingCircle';
 import { useA11yFlag, useCountdown } from './hooks';

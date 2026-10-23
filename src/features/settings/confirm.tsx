@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react';
 import { Alert, Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
 
 import { C, R, S } from '@/constants/theme';
-import { Button, Display, IconBadge, Sub, type LucideIcon } from '@/ui';
+import { Button, Display, IconBadge, Sub, type LucideIcon } from '@/ui/legacy';
 
 import { alpha } from './parts';
 

@@ -18,7 +18,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { C, Pastel, S, T, type PastelName } from '@/constants/theme';
 import { haptic } from '@/lib/haptics';
-import { Display, Icon, Row, Small, Sub, Surface } from '@/ui';
+import { Display, Icon, Row, Small, Sub, Surface } from '@/ui/legacy';
 
 /* ---------- kinds ---------- */
 

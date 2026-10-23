@@ -6,7 +6,7 @@ import { View } from 'react-native';
 import { C, S, Tint } from '@/constants/theme';
 import { haptic } from '@/lib/haptics';
 import type { State } from '@/lib/store';
-import { Button, Card, Display, IconBadge, Row, Screen, Section, Sub } from '@/ui';
+import { Button, Card, Display, IconBadge, Row, Screen, Section, Sub } from '@/ui/legacy';
 
 import { todayFacts } from './logic';
 import { ChecklistProgress, FactsCard, RuleCard, StepHeader } from './parts';

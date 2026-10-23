@@ -19,7 +19,7 @@ import {
 } from '@/features/journal/parts';
 import { fmtR, journalStats } from '@/lib/derive';
 import { useStore } from '@/lib/store';
-import { ArtCard, Button, Card, Display, Divider, Hero, IconBadge, IconButton, Screen, Section, Sub } from '@/ui';
+import { ArtCard, Button, Card, Display, Divider, Hero, IconBadge, IconButton, Screen, Section, Sub } from '@/ui/legacy';
 
 const toGate = () => router.push('/gate');
 const openTrade = (id: string) => router.push(`/trade/${id}`);
