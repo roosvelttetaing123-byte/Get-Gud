@@ -1,9 +1,11 @@
 import {
-  BigShouldersDisplay_600SemiBold,
-  BigShouldersDisplay_700Bold,
-  BigShouldersDisplay_800ExtraBold,
+  PlusJakartaSans_400Regular,
+  PlusJakartaSans_500Medium,
+  PlusJakartaSans_600SemiBold,
+  PlusJakartaSans_700Bold,
+  PlusJakartaSans_800ExtraBold,
   useFonts,
-} from '@expo-google-fonts/big-shoulders-display';
+} from '@expo-google-fonts/plus-jakarta-sans';
 import { DarkTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
@@ -20,9 +22,11 @@ const theme = {
 
 export default function RootLayout() {
   const [loaded, error] = useFonts({
-    BigShouldersDisplay_600SemiBold,
-    BigShouldersDisplay_700Bold,
-    BigShouldersDisplay_800ExtraBold,
+    PlusJakartaSans_400Regular,
+    PlusJakartaSans_500Medium,
+    PlusJakartaSans_600SemiBold,
+    PlusJakartaSans_700Bold,
+    PlusJakartaSans_800ExtraBold,
   });
 
   useEffect(() => {

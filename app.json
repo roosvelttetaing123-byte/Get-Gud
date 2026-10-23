@@ -14,7 +14,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#121933",
+        "backgroundColor": "#0A1020",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
@@ -23,7 +23,11 @@
     },
     "web": {
       "output": "single",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/favicon.png",
+      "name": "Get Gud",
+      "shortName": "Get Gud",
+      "themeColor": "#0A1020",
+      "backgroundColor": "#0A1020"
     },
     "plugins": [
       "expo-router",
@@ -31,7 +35,7 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#121933",
+          "backgroundColor": "#0A1020",
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 120
         }
@@ -39,8 +43,9 @@
     ],
     "experiments": {
       "typedRoutes": true,
-      "reactCompiler": true
+      "reactCompiler": true,
+      "baseUrl": "/Get-Gud"
     },
-    "backgroundColor": "#121933"
+    "backgroundColor": "#0A1020"
   }
 }
