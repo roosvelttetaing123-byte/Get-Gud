@@ -41,3 +41,8 @@ example
 # generated native folders
 /ios
 /android
+
+# tools
+__pycache__/
+*.pyc
+tools/render3d/node_modules/
