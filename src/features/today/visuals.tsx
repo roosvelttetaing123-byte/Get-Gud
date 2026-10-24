@@ -18,7 +18,7 @@ import {
   type LucideIcon,
 } from 'lucide-react-native';
 
-import { PASTELS, SYS, type PastelName } from '@/constants/theme';
+import { SYS } from '@/constants/theme';
 
 /** Pick an icon for a promise from its words. */
 export function promiseIcon(text: string): LucideIcon {
@@ -40,8 +40,6 @@ export function promiseIcon(text: string): LucideIcon {
 const PROMISE_COLORS = [SYS.orange, SYS.green, SYS.blue, SYS.indigo, SYS.pink, SYS.teal, SYS.purple, SYS.yellow] as const;
 export const promiseColor = (i: number): string => PROMISE_COLORS[i % PROMISE_COLORS.length];
 
-/** @deprecated v2 pastel pairs; kept for older Settings code. Prefer promiseColor. */
-export const pastelAt = (i: number): PastelName => PASTELS[i % PASTELS.length];
 
 /* ---------- colour maths (derived from theme colours, never new hex values) ---------- */
 

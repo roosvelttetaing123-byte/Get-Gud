@@ -2,10 +2,11 @@
 
 A discipline and emotion-control app for iPhone, built for trading and for life.
 
-- **Gate** — before every trade: name what you feel, tick every rule. The app answers *Clear*, *Wait* or *Stop* using your feelings, your checklist, your daily trade limit, your loss streak and a cool-down after losses.
-- **Journal** — log each result (R multiple, rules followed, how you feel after). It shows what each emotion costs you, and how rule-breaking and overrides really perform.
-- **Urge** — when you want to revenge trade, move a stop, doomscroll or skip the gym: name it, rate it, and ride it out with a guided breathing timer.
-- **Today** — morning/evening check-in: mood, energy, sleep, daily promises, streak, and your trading status for the day.
+- **Today**: three daily rings (Promises, Mind, Discipline), a 30-second morning check-in and a close-the-day ritual, promise switches, and a forgiving streak with freezes.
+- **Gate**: before every trade, slide to how you feel, name it, and tick your rules. The answer is *Clear*, *Wait* (with a live cool-down) or *Stop*, based on your feelings, rules, daily limits, loss streak and cool-down.
+- **Journal**: what each feeling costs you, rules followed vs broken, weekly R bars and every entry.
+- **Urge**: name the urge, rate it, and breathe through it with a Breathe-style bloom until it passes.
+- **Medals**: 3D medals for streaks and discipline, like "Walked away" for honouring a Stop.
 
 Everything is stored only on the phone. No account, no server.
 
@@ -35,7 +36,7 @@ A native App Store build is also possible later with EAS (`npx eas-cli@latest bu
 
 ## Stack
 
-Expo SDK 58, React Native 0.88 + react-native-web, Expo Router, TypeScript, Plus Jakarta Sans, lucide icons, react-native-svg, expo-linear-gradient. Storage: `expo-sqlite` key-value store on native, `localStorage` on web.
+Expo SDK 58, React Native 0.88 + react-native-web, Expo Router, TypeScript, SF Pro (system font), lucide icons, react-native-svg, Reanimated, expo-blur. Storage: `expo-sqlite` key-value store on native, `localStorage` on web. Offline service worker and iPhone launch screens for the home-screen app. 3D assets are pre-rendered with `tools/render3d` (headless three.js).
 
 ```
 src/
@@ -43,7 +44,8 @@ src/
   constants/      design tokens (colour = meaning)
   lib/store.ts    on-device state + actions
   lib/derive.ts   gate rules, streaks, journal stats (pure functions)
-  ui/             component kit
+  lib/engage.ts   rings, streak freezes, medals
+  ui/             component kit (Apple iOS 26 patterns)
 DESIGN.md         design and copy rules
 ```
 

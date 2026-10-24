@@ -2,11 +2,11 @@
  * Settings building blocks, iOS Settings style: an inset list for sheets (elevated cells on the
  * sheet's background), the red minus / green plus edit controls, and the nav-bar "Done" button.
  */
-import { Minus, Plus, type LucideIcon } from 'lucide-react-native';
+import { Minus, Plus } from 'lucide-react-native';
 import React from 'react';
 import { Platform, Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
-import { C, R, S, tint } from '@/constants/theme';
+import { C, R, S } from '@/constants/theme';
 import { haptic } from '@/lib/haptics';
 import { Button, Divider, Txt } from '@/ui';
 
@@ -142,31 +142,6 @@ export function ValueStepper({
   );
 }
 
-/* ---------- kept for src/features/today/EditableList.tsx ---------- */
-
-/** rgba() overlay of a token hex. */
-export const alpha = (hex: string, a: number) => tint(hex, a);
-
-export function InsetDivider({ inset = 52 }: { inset?: number }) {
-  return <Divider inset={inset} />;
-}
-
-export function RemoveButton({ label, onPress, icon: I }: { label: string; onPress: () => void; icon: LucideIcon }) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      hitSlop={8}
-      onPress={() => {
-        haptic.tap();
-        onPress();
-      }}
-      style={({ pressed }) => [styles.remove, pressed && { backgroundColor: tint(C.red, 0.18) }]}>
-      <I size={15} color={C.label2} strokeWidth={2.6} />
-    </Pressable>
-  );
-}
-
 const styles = StyleSheet.create({
   note: { paddingHorizontal: S.lg },
   group: { backgroundColor: C.card2, borderRadius: R.card, overflow: 'hidden' },
@@ -174,5 +149,4 @@ const styles = StyleSheet.create({
   stepper: { flexDirection: 'row', alignItems: 'center', height: 32, borderRadius: 16, backgroundColor: C.fill3, overflow: 'hidden' },
   stepHalf: { width: 47, height: 32, alignItems: 'center', justifyContent: 'center' },
   stepRule: { width: StyleSheet.hairlineWidth, height: 18, backgroundColor: C.separator },
-  remove: { width: 32, height: 32, borderRadius: 16, backgroundColor: C.fill4, alignItems: 'center', justifyContent: 'center' },
 });

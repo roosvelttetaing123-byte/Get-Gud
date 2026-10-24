@@ -59,20 +59,6 @@ export const C = {
   loss: SYS.red,
   ...SYS,
 
-  // ---- deprecated v2 aliases (kept so old screens compile during the rebuild) ----
-  ink: '#000000',
-  surface: '#1C1C1E',
-  raised: '#2C2C2E',
-  line: 'rgba(84,84,88,0.6)',
-  mist: '#FFFFFF',
-  haze: 'rgba(235,235,245,0.6)',
-  faint: 'rgba(235,235,245,0.3)',
-  accent: '#FFB800',
-  jade: SYS.green,
-  tangerine: SYS.orange,
-  coral: SYS.red,
-  gold: '#FFB800',
-  onLight: '#000000',
 } as const;
 
 /** The three daily rings. Our own colours (not Apple's Move/Exercise/Stand). */
@@ -142,7 +128,6 @@ export const S = {
   xxxl: 32,
   margin: 16, // screen side margin
   section: 28, // between sections
-  gutter: 16, // deprecated alias of margin
 } as const;
 
 /** Concentric radii. */
@@ -152,11 +137,6 @@ export const R = {
   sheet: 36,
   iconSquare: 7,
   pill: 999,
-  // deprecated v2 aliases
-  hero: 26,
-  surface: 26,
-  tile: 22,
-  control: 14,
 } as const;
 
 /** Floating glass tab bar. */
@@ -175,47 +155,5 @@ export const SPRING = {
   bouncy: { duration: 550, dampingRatio: 0.68 },
 } as const;
 
-/* ---------- deprecated v2 exports (remove once all screens are on v3) ---------- */
-
+/** Emotion tone categories used by the gate logic: good (jade), trade smaller (tangerine), don't trade (coral). */
 export type Tone = 'jade' | 'tangerine' | 'coral' | 'gold' | 'neutral';
-export const toneColor = (t: Tone) =>
-  t === 'neutral' ? C.label2 : t === 'jade' ? C.green : t === 'tangerine' ? C.orange : t === 'coral' ? C.red : C.tint;
-export const Tint = {
-  jade: tint(SYS.green),
-  tangerine: tint(SYS.orange),
-  coral: tint(SYS.red),
-  gold: tint('#FFB800'),
-  accent: tint('#FFB800'),
-} as const;
-export const Pastel = {
-  sky: [SYS.blue, SYS.cyan],
-  mint: [SYS.mint, SYS.green],
-  butter: [SYS.yellow, '#FFB800'],
-  rose: [SYS.pink, SYS.red],
-  lilac: [SYS.indigo, SYS.purple],
-  peach: [SYS.orange, SYS.yellow],
-} as const satisfies Record<string, readonly [string, string]>;
-export type PastelName = keyof typeof Pastel;
-export const PASTELS = Object.keys(Pastel) as PastelName[];
-export const F = {
-  regular: FONT.system,
-  medium: FONT.system,
-  semi: FONT.system,
-  bold: FONT.system,
-  extra: FONT.system,
-  display: FONT.system,
-  displayBold: FONT.system,
-  displaySemi: FONT.system,
-  body: FONT.system,
-  mono: Platform.select({ ios: 'Menlo', default: 'monospace' }),
-} as const;
-export const T = {
-  verdict: 88,
-  hero: 34,
-  title: 28,
-  stat: 22,
-  h2: 20,
-  body: 17,
-  sub: 15,
-  small: 13,
-} as const;
