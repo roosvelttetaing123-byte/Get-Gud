@@ -17,6 +17,7 @@
     "../../src/lib/sleep.ts",
     "../../src/lib/sleepEdge.ts",
     "../../src/lib/sleepNeed.ts",
-    "../../src/lib/modelFit.ts"
+    "../../src/lib/modelFit.ts",
+    "../../src/lib/coach.ts"
   ]
 }

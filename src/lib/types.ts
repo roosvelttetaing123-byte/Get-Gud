@@ -47,6 +47,7 @@ export interface DayLog {
   checkin?: CheckIn; // morning ritual
   close?: DayClose; // evening ritual
   frozen?: boolean; // a streak freeze protected this day
+  coachHidden?: boolean; // "Hide for today" on the coach card
   // v2 fields, still read for older data
   mood?: number; // 1-5
   energy?: number; // 1-5

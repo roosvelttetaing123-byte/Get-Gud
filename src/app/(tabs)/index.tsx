@@ -2,12 +2,13 @@
  * Today: Apple Fitness Summary for discipline.
  * Rings are the hero, then one primary action by stage, then promises, the streak and trading.
  */
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { View } from 'react-native';
 
 import { S } from '@/constants/theme';
 import { CheckInSheet } from '@/features/today/CheckInSheet';
 import { CloseSheet } from '@/features/today/CloseSheet';
+import { CoachCard } from '@/features/today/CoachCard';
 import { ProfileButton, WhyCard } from '@/features/today/Header';
 import { HeroRings } from '@/features/today/HeroRings';
 import { PrimaryAction } from '@/features/today/PrimaryAction';
@@ -16,6 +17,7 @@ import { TradingCard } from '@/features/today/TradingCard';
 import { appleDate, useHourClock } from '@/features/today/useToday';
 import { WeekStreak } from '@/features/today/WeekStreak';
 import { SleepGlance } from '@/features/sleep/parts';
+import { coach as coachFor } from '@/lib/coach';
 import { sleepSummary } from '@/lib/sleep';
 import { tradingToday } from '@/lib/derive';
 import { isPerfect, ringDetails, ringsFor, stageOf, streak, weekStrip } from '@/lib/engage';
@@ -38,6 +40,8 @@ export default function TodayScreen() {
   const trading = tradingToday(state, now.getTime());
   const why = settings.why.trim();
   const streakNow = streak(state, now);
+  // The learning engine: recomputed when your data changes or the hour ticks over.
+  const coach = useMemo(() => coachFor(state, now.getTime()), [state, now]);
 
   return (
     <Screen title="Today" caption={appleDate(now)} accessory={<ProfileButton name={settings.name} />}>
@@ -53,6 +57,8 @@ export default function TodayScreen() {
           onCloseDay={() => setSheet('close')}
         />
       </View>
+
+      <CoachCard coach={coach} dayKey={key} />
 
       <SleepGlance sum={sleepSummary(state, now.getTime())} now={now.getTime()} />
 
