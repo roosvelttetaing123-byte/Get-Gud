@@ -1,69 +1,156 @@
-import { Text, View, Pressable, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
+/**
+ * Settings building blocks, iOS Settings style: an inset list for sheets (elevated cells on the
+ * sheet's background), the red minus / green plus edit controls, and the nav-bar "Done" button.
+ */
+import { Minus, Plus, type LucideIcon } from 'lucide-react-native';
+import React from 'react';
+import { Platform, Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
-import { C, F, Pastel, R, S, type PastelName } from '@/constants/theme';
+import { C, R, S, tint } from '@/constants/theme';
 import { haptic } from '@/lib/haptics';
-import { Divider, IconBadge, Small, Sub, type LucideIcon } from '@/ui/legacy';
+import { Button, Divider, Txt } from '@/ui';
 
-/** rgba() overlay of a token hex, so screens never invent colours. */
-export function alpha(hex: string, a: number) {
-  const n = parseInt(hex.slice(1), 16);
-  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+/**
+ * Props for a text field drawn as a bare list cell (no box). On web it also opts out of the
+ * global :focus-visible ring (text inputs always match it), since the caret marks focus, as on iOS.
+ */
+export const BARE_FIELD = (Platform.OS === 'web' ? { dataSet: { ggBare: '' } } : {}) as object;
+
+if (Platform.OS === 'web' && typeof document !== 'undefined' && !document.getElementById('gg-bare-css')) {
+  const el = document.createElement('style');
+  el.id = 'gg-bare-css';
+  el.textContent = '[data-gg-bare]:focus,[data-gg-bare]:focus-visible{outline:none}';
+  document.head.appendChild(el);
 }
 
-/** IconBadge tinted from a pastel: the pastel's deeper stop over a soft wash of it. */
-export function PastelBadge({ icon, pastel, size = 40 }: { icon: LucideIcon; pastel: PastelName; size?: number }) {
-  const deep = Pastel[pastel][1];
-  return <IconBadge icon={icon} color={deep} bg={alpha(deep, 0.16)} size={size} />;
-}
-
-/** Same geometry as IconBadge, with a number instead of an icon. */
-export function NumberBadge({ n, pastel = 'sky', size = 40 }: { n: number; pastel?: PastelName; size?: number }) {
-  const deep = Pastel[pastel][1];
+/** Nav-bar "Done": plain, semibold, tint colour. */
+export function DoneButton({ onPress, label = 'Done' }: { onPress: () => void; label?: string }) {
   return (
-    <View
-      style={[
-        styles.numberBadge,
-        { width: size, height: size, borderRadius: size * 0.32, backgroundColor: alpha(deep, 0.16) },
-      ]}>
-      <Text style={{ fontFamily: F.extra, fontSize: size * 0.4, color: deep }}>{n}</Text>
-    </View>
+    <Button
+      title={label}
+      kind="plain"
+      size="medium"
+      full={false}
+      onPress={onPress}
+      style={{ height: 36, paddingHorizontal: 6, marginRight: -6 }}
+    />
   );
 }
 
 /**
- * One line of a grouped settings card: badge on the left, label and detail in the middle,
- * control on the right. A long detail drops below the control so labels never get squeezed.
+ * Inset grouped list for use inside a Sheet. The sheet is already C.card, so cells sit one
+ * step up (C.card2), like grouped lists in iOS sheets. Separators start where the text starts.
  */
-export function SettingRow({
-  badge,
-  label,
-  detail,
-  control,
+export function SheetGroup({
+  header,
+  footer,
+  footerColor = C.label2,
+  inset = S.lg,
+  children,
   style,
 }: {
-  badge: React.ReactNode;
-  label: string;
-  detail?: string;
-  control?: React.ReactNode;
+  header?: string;
+  footer?: string;
+  footerColor?: string;
+  /** Where separators start, measured from the cell's left edge. */
+  inset?: number;
+  children: React.ReactNode;
   style?: StyleProp<ViewStyle>;
 }) {
+  const rows = React.Children.toArray(children).filter(Boolean);
   return (
-    <View style={[styles.row, style]}>
-      {badge}
-      <View style={{ flex: 1, gap: 4 }}>
-        <View style={styles.rowTop}>
-          <Text numberOfLines={2} style={styles.label}>
-            {label}
-          </Text>
-          {control}
-        </View>
-        {detail ? <Small>{detail}</Small> : null}
+    <View style={[{ gap: 6 }, style]}>
+      {header ? (
+        <Txt v="footnote" color={C.label2} style={styles.note}>
+          {header}
+        </Txt>
+      ) : null}
+      <View style={styles.group}>
+        {rows.map((r, i) => (
+          <React.Fragment key={React.isValidElement(r) && r.key != null ? r.key : i}>
+            {i > 0 ? <Divider inset={inset} /> : null}
+            {r}
+          </React.Fragment>
+        ))}
       </View>
+      {footer ? (
+        <Txt v="footnote" color={footerColor} style={styles.note}>
+          {footer}
+        </Txt>
+      ) : null}
     </View>
   );
 }
 
-/** Small round remove button: an X in a soft circle, with a 44pt touch area. */
+/** The 22pt filled circle iOS uses for delete (red minus) and insert (green plus) in edit mode. */
+export function EditBadge({ kind }: { kind: 'delete' | 'insert' }) {
+  const I = kind === 'delete' ? Minus : Plus;
+  return (
+    <View style={[styles.badge, { backgroundColor: kind === 'delete' ? C.red : C.green }]}>
+      <I size={15} color="#FFFFFF" strokeWidth={3.2} />
+    </View>
+  );
+}
+
+/** Width of an EditBadge plus its gap: where row text starts after the cell padding. */
+export const EDIT_INSET = S.lg + 22 + S.md;
+
+/**
+ * UIStepper: a − | + capsule with no number inside. As in iOS, the row shows the value
+ * (ListRow `value`) just before it, so formatted values like "30 min" never get squeezed.
+ */
+export function ValueStepper({
+  value,
+  onChange,
+  min,
+  max,
+  step = 1,
+  label,
+}: {
+  value: number;
+  onChange: (v: number) => void;
+  min: number;
+  max: number;
+  step?: number;
+  /** What it changes, for the button names: "Decrease Max trades per day". */
+  label: string;
+}) {
+  const half = (dir: -1 | 1) => {
+    const off = dir < 0 ? value <= min : value >= max;
+    const I = dir < 0 ? Minus : Plus;
+    return (
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${dir < 0 ? 'Decrease' : 'Increase'} ${label}`}
+        accessibilityState={{ disabled: off }}
+        disabled={off}
+        onPress={() => {
+          haptic.tap();
+          onChange(dir < 0 ? Math.max(min, value - step) : Math.min(max, value + step));
+        }}
+        style={({ pressed }) => [styles.stepHalf, pressed && { backgroundColor: C.fill }]}>
+        <I size={18} color={off ? C.label4 : C.label} strokeWidth={2.4} />
+      </Pressable>
+    );
+  };
+  return (
+    <View style={styles.stepper}>
+      {half(-1)}
+      <View style={styles.stepRule} />
+      {half(1)}
+    </View>
+  );
+}
+
+/* ---------- kept for src/features/today/EditableList.tsx ---------- */
+
+/** rgba() overlay of a token hex. */
+export const alpha = (hex: string, a: number) => tint(hex, a);
+
+export function InsetDivider({ inset = 52 }: { inset?: number }) {
+  return <Divider inset={inset} />;
+}
+
 export function RemoveButton({ label, onPress, icon: I }: { label: string; onPress: () => void; icon: LucideIcon }) {
   return (
     <Pressable
@@ -74,63 +161,18 @@ export function RemoveButton({ label, onPress, icon: I }: { label: string; onPre
         haptic.tap();
         onPress();
       }}
-      style={({ pressed }) => [styles.remove, pressed && { backgroundColor: alpha(C.coral, 0.18) }]}>
-      {({ pressed }) => <I size={15} color={pressed ? C.coral : C.haze} strokeWidth={2.6} />}
+      style={({ pressed }) => [styles.remove, pressed && { backgroundColor: tint(C.red, 0.18) }]}>
+      <I size={15} color={C.label2} strokeWidth={2.6} />
     </Pressable>
   );
-}
-
-/** Hairline that starts where the row text starts, like grouped iOS lists. */
-export function InsetDivider({ inset = 52 }: { inset?: number }) {
-  return (
-    <View style={{ marginLeft: inset }}>
-      <Divider />
-    </View>
-  );
-}
-
-/** Compact white pill for closing a modal. */
-export function DoneButton({ onPress }: { onPress: () => void }) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel="Done"
-      hitSlop={6}
-      onPress={() => {
-        haptic.tap();
-        onPress();
-      }}
-      style={({ pressed }) => [styles.done, pressed && { opacity: 0.8, transform: [{ scale: 0.97 }] }]}>
-      <Text style={styles.doneText}>Done</Text>
-    </Pressable>
-  );
-}
-
-/** Quiet note under a grouped card, iOS section-footer style. */
-export function CardNote({ children }: { children: React.ReactNode }) {
-  return <Sub style={{ paddingHorizontal: S.xs, fontSize: 13, lineHeight: 19 }}>{children}</Sub>;
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'flex-start', gap: S.md, paddingVertical: 14 },
-  rowTop: { flexDirection: 'row', alignItems: 'center', gap: S.sm, minHeight: 40 },
-  label: { flex: 1, fontFamily: F.bold, fontSize: 16, lineHeight: 21, color: C.mist, letterSpacing: -0.2 },
-  numberBadge: { alignItems: 'center', justifyContent: 'center' },
-  done: {
-    height: 38,
-    paddingHorizontal: 18,
-    borderRadius: R.pill,
-    backgroundColor: C.mist,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  doneText: { fontFamily: F.bold, fontSize: 15, color: C.onLight },
-  remove: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.07)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  note: { paddingHorizontal: S.lg },
+  group: { backgroundColor: C.card2, borderRadius: R.card, overflow: 'hidden' },
+  badge: { width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+  stepper: { flexDirection: 'row', alignItems: 'center', height: 32, borderRadius: 16, backgroundColor: C.fill3, overflow: 'hidden' },
+  stepHalf: { width: 47, height: 32, alignItems: 'center', justifyContent: 'center' },
+  stepRule: { width: StyleSheet.hairlineWidth, height: 18, backgroundColor: C.separator },
+  remove: { width: 32, height: 32, borderRadius: 16, backgroundColor: C.fill4, alignItems: 'center', justifyContent: 'center' },
 });

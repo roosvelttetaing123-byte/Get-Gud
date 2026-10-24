@@ -1,10 +1,15 @@
+/**
+ * Ask before a destructive change, or tell the user something, as an iOS alert.
+ * Native uses the system alert. On the web build react-native-web's Alert is a no-op, so an
+ * in-app alert in the iOS 26 style asks instead: left-aligned title and message, capsule buttons.
+ */
+import { type LucideIcon } from 'lucide-react-native';
 import { useCallback, useState } from 'react';
 import { Alert, Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
 
-import { C, R, S } from '@/constants/theme';
-import { Button, Display, IconBadge, Sub, type LucideIcon } from '@/ui/legacy';
-
-import { alpha } from './parts';
+import { C, FONT, S } from '@/constants/theme';
+import { haptic } from '@/lib/haptics';
+import { Txt, useSpringValue } from '@/ui';
 
 export type ConfirmAsk = {
   title: string;
@@ -13,16 +18,19 @@ export type ConfirmAsk = {
   quote?: string;
   confirmLabel: string;
   cancelLabel: string;
-  icon: LucideIcon;
+  /** Kept for callers; the iOS alert has no icon. */
+  icon?: LucideIcon;
   onConfirm: () => void;
 };
 
-/**
- * Ask before a destructive change. Native uses the system alert; on the web build
- * react-native-web's Alert is a no-op, so an in-app dialog asks instead.
- */
+export type InformAsk = { title: string; message: string; okLabel?: string };
+
+type Ask = { id: number } & (({ kind: 'confirm' } & ConfirmAsk) | ({ kind: 'inform' } & InformAsk));
+
 export function useConfirm() {
-  const [ask, setAsk] = useState<ConfirmAsk | null>(null);
+  // `ask` stays set while the alert fades out, so its content doesn't vanish mid-fade.
+  const [ask, setAsk] = useState<Ask | null>(null);
+  const [open, setOpen] = useState(false);
 
   const confirm = useCallback((a: ConfirmAsk) => {
     if (Platform.OS !== 'web') {
@@ -37,70 +45,134 @@ export function useConfirm() {
       );
       return;
     }
-    setAsk(a);
+    setAsk({ id: Date.now(), kind: 'confirm', ...a });
+    setOpen(true);
   }, []);
 
-  const close = () => setAsk(null);
-  const dialog = (
-    <Modal visible={!!ask} transparent animationType="fade" onRequestClose={close}>
+  const inform = useCallback((a: InformAsk) => {
+    if (Platform.OS !== 'web') {
+      Alert.alert(a.title, a.message, [{ text: a.okLabel ?? 'OK' }], { userInterfaceStyle: 'dark' });
+      return;
+    }
+    setAsk({ id: Date.now(), kind: 'inform', ...a });
+    setOpen(true);
+  }, []);
+
+  const close = () => setOpen(false);
+
+  // Mounted only while asking, with a fresh key per ask: react-native-web stacks modals in
+  // the order they mount, so this keeps the alert above any open sheet.
+  const dialog = ask ? (
+    <Modal
+      key={ask.id}
+      visible={open}
+      transparent
+      animationType="fade"
+      onRequestClose={close}
+      onDismiss={() => setAsk((a) => (a?.id === ask.id ? null : a))}>
       <View style={styles.backdrop}>
-        <Pressable accessibilityLabel={ask?.cancelLabel ?? 'Cancel'} style={StyleSheet.absoluteFill} onPress={close} />
-        {ask ? (
-          <View style={styles.card} accessibilityViewIsModal accessibilityRole="alert">
-            <IconBadge icon={ask.icon} color={C.coral} bg={alpha(C.coral, 0.16)} size={48} />
-            <Display size={22} weight="extra">
-              {ask.title}
-            </Display>
-            {ask.quote ? (
-              <View style={styles.quote}>
-                <Sub color={C.mist}>{ask.quote}</Sub>
-              </View>
-            ) : null}
-            <Sub>{ask.message}</Sub>
-            <View style={{ gap: S.sm, marginTop: S.sm }}>
-              <Button
-                kind="danger"
-                label={ask.confirmLabel}
-                onPress={() => {
-                  close();
-                  ask.onConfirm();
-                }}
-              />
-              <Button kind="secondary" label={ask.cancelLabel} onPress={close} />
-            </View>
-          </View>
-        ) : null}
+        <AlertCard ask={ask} close={close} />
       </View>
     </Modal>
-  );
+  ) : null;
 
-  return { confirm, dialog };
+  return { confirm, inform, dialog };
+}
+
+function AlertCard({ ask, close }: { ask: Ask; close: () => void }) {
+  // iOS alerts settle in from slightly larger.
+  const p = useSpringValue(1, 'snappy', 0);
+  const buttons =
+    ask.kind === 'confirm'
+      ? [
+          { label: ask.cancelLabel, destructive: false, onPress: close },
+          {
+            label: ask.confirmLabel,
+            destructive: true,
+            onPress: () => {
+              close();
+              ask.onConfirm();
+            },
+          },
+        ]
+      : [{ label: ask.okLabel ?? 'OK', destructive: false, onPress: close }];
+  // Side by side when both labels are short; stacked (action first, Cancel last) otherwise.
+  const stacked = buttons.length > 1 && buttons.some((b) => b.label.length > 11);
+  const ordered = stacked ? [...buttons].reverse() : buttons;
+
+  return (
+    <View
+      style={[styles.card, { opacity: p, transform: [{ scale: 1.08 - 0.08 * p }] }]}
+      accessibilityViewIsModal
+      accessibilityRole="alert">
+      <View style={{ gap: S.sm }}>
+        <Txt v="headline">{ask.title}</Txt>
+        {ask.kind === 'confirm' && ask.quote ? (
+          <Txt v="subhead" color={C.label}>
+            “{ask.quote}”
+          </Txt>
+        ) : null}
+        <Txt v="subhead" color={C.label2}>
+          {ask.message}
+        </Txt>
+      </View>
+      <View style={[styles.buttons, stacked && { flexDirection: 'column' }]}>
+        {ordered.map((b) => (
+          <Pressable
+            key={b.label}
+            accessibilityRole="button"
+            accessibilityLabel={b.label}
+            onPress={() => {
+              haptic.tap();
+              b.onPress();
+            }}
+            style={({ pressed }) => [styles.btn, !stacked && { flex: 1 }, pressed && { backgroundColor: C.fill }]}>
+            <Txt
+              v="body"
+              weight={b.destructive ? '600' : '500'}
+              color={b.destructive ? C.red : C.label}
+              numberOfLines={1}
+              style={{ fontFamily: FONT.system }}>
+              {b.label}
+            </Txt>
+          </Pressable>
+        ))}
+      </View>
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(5,8,16,0.72)',
+    backgroundColor: 'rgba(0,0,0,0.48)',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: S.gutter,
+    padding: S.xxxl,
   },
   card: {
     width: '100%',
-    maxWidth: 380,
-    backgroundColor: C.surface,
-    borderRadius: R.hero,
-    borderWidth: 1,
-    borderColor: C.line,
-    padding: S.xl,
-    gap: S.md,
+    maxWidth: 300,
+    backgroundColor: C.card2,
+    borderRadius: 34,
+    paddingHorizontal: S.xl,
+    paddingTop: 22,
+    paddingBottom: S.lg,
+    gap: S.xl,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.12)',
+    shadowColor: '#000',
+    shadowOpacity: 0.35,
+    shadowRadius: 30,
+    shadowOffset: { width: 0, height: 12 },
   },
-  quote: {
-    backgroundColor: C.raised,
-    borderRadius: R.control,
-    borderWidth: 1,
-    borderColor: C.line,
+  buttons: { flexDirection: 'row', gap: S.sm, marginHorizontal: -4 },
+  btn: {
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: C.fill2,
+    alignItems: 'center',
+    justifyContent: 'center',
     paddingHorizontal: S.lg,
-    paddingVertical: S.md,
   },
 });

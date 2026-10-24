@@ -187,8 +187,11 @@ export function validateState(raw: unknown): State {
   const settings: Json = { ...(DEFAULT_SETTINGS as unknown as Json), ...((s.settings as Json) ?? {}) };
   for (const [key, def] of Object.entries(DEFAULT_SETTINGS)) {
     if (kind(settings[key]) !== kind(def)) bad(`setting "${key}" has the wrong type`);
-    if (Array.isArray(def) && (settings[key] as unknown[]).some((x) => typeof x !== 'string')) {
-      bad(`setting "${key}" should be a list of text`);
+    if (Array.isArray(def)) {
+      const want = key === 'restDays' ? 'number' : 'string';
+      if ((settings[key] as unknown[]).some((x) => typeof x !== want)) {
+        bad(`setting "${key}" should be a list of ${want === 'number' ? 'numbers' : 'text'}`);
+      }
     }
   }
   out.settings = settings;

@@ -124,6 +124,11 @@
         outline: 2px solid #0a84ff;
         outline-offset: 2px;
       }
+      /* Text fields draw their own (gold) focus border. */
+      input:focus-visible,
+      textarea:focus-visible {
+        outline: none;
+      }
     </style>
   </head>
   <body>
