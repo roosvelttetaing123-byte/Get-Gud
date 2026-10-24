@@ -17,7 +17,9 @@ import { LogSheet } from '@/features/sleep/LogSheet';
 import { SLEEP_TINT } from '@/features/sleep/look';
 import { Habits } from '@/features/sleep/parts';
 import { openSleepMode } from '@/features/sleep/SleepMode';
+import { TradeWindows } from '@/features/sleep/TradeWindows';
 import { asleepHours, clockLabel, fmtDur, isNap, keyOf, sleepSummary } from '@/lib/sleep';
+import { sleepEdge } from '@/lib/sleepEdge';
 import { actions, useStore, type SleepLog } from '@/lib/store';
 import { useNow } from '@/lib/useNow';
 import { Button, Group, IconButton, ListRow, Screen, Section, Stepper, Txt } from '@/ui';
@@ -51,6 +53,7 @@ export default function SleepScreen() {
 
   const sum = useMemo(() => sleepSummary(state, now), [state, now]);
   const { debt, sched, phase, need } = sum;
+  const edge = useMemo(() => sleepEdge(state), [state]);
   const logs = state.sleeps ?? [];
   const todayKey = keyOf(sched.wakeAt);
   const done = state.sleepHabits?.[todayKey] ?? [];
@@ -87,6 +90,10 @@ export default function SleepScreen() {
 
       <Section title="Energy">
         <EnergyCard sched={sched} now={now} phase={phase} />
+      </Section>
+
+      <Section title="Trade windows">
+        <TradeWindows sched={sched} edge={edge} now={now} />
       </Section>
 
       <Section title="Today">
