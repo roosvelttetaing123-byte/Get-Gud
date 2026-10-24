@@ -47,7 +47,8 @@ function parseDate(s: string): number {
 /** Pull samples out of whatever the Shortcut produced. Unparseable lines are skipped. */
 export function parseSamples(text: string): Sample[] {
   const out: Sample[] = [];
-  for (const raw of text.split(/\r?\n/)) {
+  // One sample per line, or ";"-separated on one line (easier to wrap in JSON inside a Shortcut).
+  for (const raw of text.split(/\r?\n|;/)) {
     const line = raw.trim();
     if (!line) continue;
     const dates = line.match(ISO);
