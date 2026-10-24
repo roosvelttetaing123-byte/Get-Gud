@@ -44,7 +44,7 @@ export default function TodayScreen() {
   const coach = useMemo(() => coachFor(state, now.getTime()), [state, now]);
 
   return (
-    <Screen title="Today" caption={appleDate(now)} accessory={<ProfileButton name={settings.name} />}>
+    <Screen backdrop="today" title="Today" caption={appleDate(now)} accessory={<ProfileButton name={settings.name} />}>
       <View style={{ gap: S.md }}>
         <HeroRings details={details} perfect={perfect} />
         <PrimaryAction

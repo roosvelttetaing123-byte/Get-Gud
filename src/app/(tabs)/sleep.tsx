@@ -68,6 +68,7 @@ export default function SleepScreen() {
 
   return (
     <Screen
+      backdrop="sleep"
       title="Sleep"
       caption={`Tonight ${clockLabel(sched.melatonin.start)}–${clockLabel(sched.melatonin.end)}`}
       accessory={<IconButton icon={Plus} label="Log sleep" onPress={() => setSheet({})} />}>

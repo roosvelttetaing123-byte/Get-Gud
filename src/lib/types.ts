@@ -96,6 +96,8 @@ export interface Settings {
   healthImport: boolean; // imported from Apple Health at least once
   healthGist: string; // secret gist id the Shortcut writes to ('' = off)
   onboarded: boolean;
+  /** Screen background: 'living' colour glows, 'midnight' navy, or 'black'. Unknown values mean 'living'. */
+  background: string;
 }
 
 export interface State {

@@ -40,7 +40,7 @@ export function ReviewView({
 
   if (saved) {
     return (
-      <Screen contentStyle={{ flexGrow: 1, justifyContent: 'center' }} gap={S.xl}>
+      <Screen backdrop="urge" contentStyle={{ flexGrow: 1, justifyContent: 'center' }} gap={S.xl}>
         {saved === 'resisted' ? (
           <RodeItOut kind={kind} before={before} after={savedAfter} seconds={seconds} medal={ridden >= SURFER_AT} />
         ) : (
@@ -52,7 +52,7 @@ export function ReviewView({
   }
 
   return (
-    <Screen title="How strong now?" caption={`You sat with it for ${clock(seconds)}`}>
+    <Screen backdrop="urge" title="How strong now?" caption={`You sat with it for ${clock(seconds)}`}>
       <Card padding={S.xl} style={{ alignItems: 'center', gap: S.xl }}>
         <IntensitySlider value={after} onChange={setAfter} ghost={before} label="How strong is it now?" />
         <View style={{ alignItems: 'center', gap: S.lg }}>

@@ -26,7 +26,7 @@ import { C, S, SYS, tint } from '@/constants/theme';
 import type { CoachArea, CoachIcon, Insight, Coach } from '@/lib/coach';
 import { haptic } from '@/lib/haptics';
 import { actions } from '@/lib/store';
-import { Card, Divider, IconSquare, IconWell, ProgressRing, Sheet, Txt } from '@/ui';
+import { Card, Divider, IconSquare, IconWell, Pressy, ProgressRing, Sheet, Txt } from '@/ui';
 
 export const COACH_ICON: Record<CoachIcon, LucideIcon> = {
   moon: MoonStar,
@@ -124,28 +124,38 @@ export function CoachCard({ coach, dayKey }: { coach: Coach; dayKey: string }) {
           {footer}
         </Card>
       ) : card.kind === 'insight' ? (
-        <Card
-          style={{ gap: S.sm }}
-          onPress={card.route ? () => router.push(card.route!) : undefined}
-          accessibilityLabel={`${card.title}. ${card.body}`}>
-          <View style={styles.kicker}>
-            <Sparkles size={14} color={C.tint} strokeWidth={2.4} />
-            <Txt v="footnote" weight="600" color={C.tint}>
-              Learned about you
-            </Txt>
-          </View>
-          <View style={styles.head}>
-            <IconWell icon={COACH_ICON[card.icon]} color={AREA_COLOR[card.area]} size={44} />
-            <View style={{ flex: 1, gap: 2 }}>
-              <Txt v="headline">{card.title}</Txt>
-              <Txt v="subhead" color={C.label2}>
-                {card.body}
+        // Only the body is tappable: the footer holds its own buttons, and a button can't sit inside a button.
+        <Card style={{ gap: S.sm }}>
+          <Pressy
+            accessibilityRole={card.route ? 'button' : undefined}
+            accessibilityLabel={`${card.title}. ${card.body}`}
+            disabled={!card.route}
+            scaleTo={0.98}
+            onPress={() => {
+              if (!card.route) return;
+              haptic.tap();
+              router.push(card.route);
+            }}
+            style={{ gap: S.sm }}>
+            <View style={styles.kicker}>
+              <Sparkles size={14} color={C.tint} strokeWidth={2.4} />
+              <Txt v="footnote" weight="600" color={C.tint}>
+                Learned about you
               </Txt>
             </View>
-          </View>
-          <Txt v="caption1" color={C.label3} style={{ paddingLeft: 56 }}>
-            {card.evidence}
-          </Txt>
+            <View style={styles.head}>
+              <IconWell icon={COACH_ICON[card.icon]} color={AREA_COLOR[card.area]} size={44} />
+              <View style={{ flex: 1, gap: 2 }}>
+                <Txt v="headline">{card.title}</Txt>
+                <Txt v="subhead" color={C.label2}>
+                  {card.body}
+                </Txt>
+              </View>
+            </View>
+            <Txt v="caption1" color={C.label3} style={{ paddingLeft: 56 }}>
+              {card.evidence}
+            </Txt>
+          </Pressy>
           {footer}
         </Card>
       ) : (

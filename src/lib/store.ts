@@ -31,6 +31,7 @@ export const DEFAULT_SETTINGS: Settings = {
   healthImport: false,
   healthGist: '',
   onboarded: false,
+  background: 'living',
 };
 
 const KEY = 'getgud:v1';

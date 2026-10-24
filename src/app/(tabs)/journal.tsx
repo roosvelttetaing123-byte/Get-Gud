@@ -42,7 +42,7 @@ export default function JournalScreen() {
 
   if (!trades.length) {
     return (
-      <Screen title="Journal" accessory={accessory}>
+      <Screen backdrop="journal" title="Journal" accessory={accessory}>
         <Empty
           icon={BookOpen}
           title="Every trade starts at the gate."
@@ -57,7 +57,7 @@ export default function JournalScreen() {
   const hasRules = stats.followed.n + stats.broke.n + stats.overrides.n + stats.skipped > 0;
 
   return (
-    <Screen title="Journal" accessory={accessory}>
+    <Screen backdrop="journal" title="Journal" accessory={accessory}>
       <HighlightCard highlight={highlight} closed={stats.closed} />
 
       <RChart series={series} range={range} onRange={setRange} />

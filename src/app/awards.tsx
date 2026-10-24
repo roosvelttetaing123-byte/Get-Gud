@@ -37,6 +37,7 @@ export default function MedalsScreen() {
     <>
       <Screen
         modal
+        backdrop="awards"
         title="Medals"
         caption={`${earnedCount} of ${views.length} earned`}
         accessory={<Button title="Done" kind="gray" size="small" full={false} onPress={close} />}>
