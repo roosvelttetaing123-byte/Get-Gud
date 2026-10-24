@@ -4,7 +4,7 @@
  */
 import type { BottomTabBarProps } from 'expo-router/tabs';
 import { BlurView } from 'expo-blur';
-import { BookOpen, ShieldCheck, Sun, Wind, type LucideIcon } from 'lucide-react-native';
+import { BookOpen, Moon, ShieldCheck, Sun, Wind, type LucideIcon } from 'lucide-react-native';
 import { useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -18,6 +18,7 @@ const TABS: Record<string, { label: string; icon: LucideIcon; color: string }> =
   gate: { label: 'Gate', icon: ShieldCheck, color: C.green },
   journal: { label: 'Journal', icon: BookOpen, color: C.blue },
   urge: { label: 'Urge', icon: Wind, color: C.cyan },
+  sleep: { label: 'Sleep', icon: Moon, color: C.indigo },
 };
 
 export function TabBar({ state, navigateToTab, insets }: BottomTabBarProps) {

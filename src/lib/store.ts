@@ -68,6 +68,17 @@ export interface Urge {
   seconds: number; // how long you sat with it
 }
 
+export interface SleepLog {
+  id: string;
+  bed: number; // ms, lights out (or "Good night" tap)
+  wake: number; // ms, woke up
+  latencyMin?: number; // minutes to fall asleep after `bed`
+  awakeMin?: number; // minutes awake during the night
+  quality?: number; // 1-5 how rested you feel
+  nap?: boolean; // forced nap/main; undefined = auto
+  source: 'mode' | 'manual';
+}
+
 export interface Settings {
   name: string;
   why: string; // the reason you're doing this — shown on Today
@@ -79,6 +90,8 @@ export interface Settings {
   urgeMinutes: number; // default urge timer length
   freezes: number; // streak freezes in the bank (max 3)
   restDays: number[]; // weekdays (0=Sun) that never break the streak
+  sleepNeed: number; // hours a night
+  wakeGoal: string; // "HH:MM", used until there are logged nights
   onboarded: boolean;
 }
 
@@ -88,6 +101,9 @@ export interface State {
   trades: Trade[]; // newest first
   days: Record<string, DayLog>; // key = dayKey()
   urges: Urge[]; // newest first
+  sleeps: SleepLog[]; // newest first (by wake)
+  sleepSession?: { bed: number }; // sleep mode is running
+  sleepHabits?: Record<string, string[]>; // dayKey -> habit ids done
   awards: Record<string, number>; // award id -> earned timestamp
   seenAwards: string[]; // award ids already celebrated
   lastReconciled?: string; // dayKey when streak freezes were last applied
@@ -111,6 +127,8 @@ export const DEFAULT_SETTINGS: Settings = {
   urgeMinutes: 3,
   freezes: 2,
   restDays: [],
+  sleepNeed: 8,
+  wakeGoal: '07:00',
   onboarded: false,
 };
 
@@ -123,6 +141,7 @@ function fresh(): State {
     trades: [],
     days: {},
     urges: [],
+    sleeps: [],
     awards: {},
     seenAwards: [],
   };
@@ -235,6 +254,37 @@ export const actions = {
     const urge: Urge = { ...u, id: uid(), ts: Date.now() };
     commit({ ...state, urges: [urge, ...state.urges] });
     return urge;
+  },
+
+  /* ---------- sleep ---------- */
+
+  startSleep(bed = Date.now()) {
+    commit({ ...state, sleepSession: { bed } });
+  },
+
+  cancelSleep() {
+    commit({ ...state, sleepSession: undefined });
+  },
+
+  /** Save a night (or nap). Replaces a log with the same id; ends sleep mode. */
+  saveSleep(log: Omit<SleepLog, 'id'> & { id?: string }): SleepLog {
+    const full: SleepLog = { ...log, id: log.id ?? uid() };
+    const rest = (state.sleeps ?? []).filter((l) => l.id !== full.id);
+    const sleeps = [full, ...rest].sort((a, b) => b.wake - a.wake);
+    commit({ ...state, sleeps, sleepSession: undefined });
+    return full;
+  },
+
+  deleteSleep(id: string) {
+    commit({ ...state, sleeps: (state.sleeps ?? []).filter((l) => l.id !== id) });
+  },
+
+  toggleSleepHabit(key: string, id: string) {
+    const all = state.sleepHabits ?? {};
+    const done = new Set(all[key] ?? []);
+    if (done.has(id)) done.delete(id);
+    else done.add(id);
+    commit({ ...state, sleepHabits: { ...all, [key]: [...done] } });
   },
 
   /** Morning ritual. Merges into today's check-in. */

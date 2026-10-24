@@ -12,6 +12,7 @@ export default function TabLayout() {
       <Tabs.Screen name="gate" options={{ title: 'Gate' }} />
       <Tabs.Screen name="journal" options={{ title: 'Journal' }} />
       <Tabs.Screen name="urge" options={{ title: 'Urge' }} />
+      <Tabs.Screen name="sleep" options={{ title: 'Sleep' }} />
     </Tabs>
   );
 }

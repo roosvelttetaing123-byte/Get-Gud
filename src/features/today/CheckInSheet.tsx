@@ -12,7 +12,8 @@ import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
 
 import { C, S, SPRING, SYS, VALENCE } from '@/constants/theme';
 import { haptic } from '@/lib/haptics';
-import { actions, dayKey, type CheckIn } from '@/lib/store';
+import { sleepSummary } from '@/lib/sleep';
+import { actions, dayKey, getState, type CheckIn } from '@/lib/store';
 import { Button, Field, Num, Sheet, Stepper, Txt, useReduceMotion } from '@/ui';
 
 import { MoodSlider, VALENCE_COLORS } from './MoodSlider';
@@ -45,7 +46,11 @@ function CheckInForm({ checkin, onDone }: { checkin?: CheckIn; onDone: () => voi
   const [valence, setValence] = useState(checkin?.valence ?? 4);
   const [dragPos, setDragPos] = useState<number | null>(null);
   const [energy, setEnergy] = useState<number | undefined>(checkin?.energy);
-  const [sleep, setSleep] = useState<number | undefined>(checkin?.sleepHours);
+  const [sleep, setSleep] = useState<number | undefined>(() => {
+    if (checkin?.sleepHours !== undefined) return checkin.sleepHours;
+    const logged = sleepSummary(getState()).debt.lastNight;
+    return logged === undefined ? undefined : Math.max(5, Math.min(9, Math.round(logged)));
+  });
   const [intention, setIntention] = useState(checkin?.intention ?? '');
 
   const save = () => {

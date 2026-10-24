@@ -6,6 +6,7 @@ import { useEffect } from 'react';
 import { C } from '@/constants/theme';
 import { AwardWatcher } from '@/features/awards/AwardWatcher';
 import { UpdatePill } from '@/features/shell/UpdatePill';
+import { SleepMode } from '@/features/sleep/SleepMode';
 import { initPwa } from '@/lib/pwa';
 import { getState } from '@/lib/store';
 
@@ -38,6 +39,7 @@ export default function RootLayout() {
         <Stack.Screen name="onboarding" options={{ presentation: 'fullScreenModal', gestureEnabled: false }} />
       </Stack>
       <AwardWatcher />
+      <SleepMode />
       <UpdatePill />
     </ThemeProvider>
   );

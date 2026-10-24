@@ -4,6 +4,7 @@
  */
 import type { Tone } from '@/constants/theme';
 import { dayKey, isToday, type DayLog, type Settings, type State, type Trade, type Verdict } from './store';
+import { sleepSummary } from './sleep';
 
 /* ---------- emotions ---------- */
 
@@ -199,10 +200,16 @@ export function evaluateGate(input: GateInput, s: State, now = Date.now()): Gate
   else if (input.valence === undefined && today?.mood !== undefined && today.mood <= 2)
     wait.push(['mood', 'Mood is low today.']);
 
-  // 8. Short sleep (morning check-in, or the older yes/no field).
-  const sleep = today?.checkin?.sleepHours;
+  // 8. Short sleep: logged night first, then the morning check-in, then the older yes/no field.
+  //    Heavy sleep debt also waits, even after one good night.
+  const { debt, phase } = sleepSummary(s, now);
+  const sleep = debt.lastNight ?? today?.checkin?.sleepHours;
   if (sleep !== undefined && sleep < 6) wait.push(['sleep', `Only ${round(sleep)} h of sleep. Reactions are slower.`]);
+  else if (debt.known >= 3 && debt.hours >= 10)
+    wait.push(['sleep', `Sleep debt is ${Math.round(debt.hours)} h. Your edge is the first thing to go.`]);
   else if (sleep === undefined && today?.sleptWell === false) wait.push(['sleep', 'You slept badly. Reactions are slower.']);
+  else if (phase?.id === 'melatonin' || phase?.id === 'sleep')
+    wait.push(['sleep', 'Your body clock says sleep. Late trades are tired trades.']);
 
   // 9. Close to the daily limits.
   if (!t.limitHit && settings.maxLossStreak > 1 && t.lossStreak === settings.maxLossStreak - 1)

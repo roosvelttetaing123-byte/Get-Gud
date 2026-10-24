@@ -15,6 +15,8 @@ import { Promises } from '@/features/today/Promises';
 import { TradingCard } from '@/features/today/TradingCard';
 import { appleDate, useHourClock } from '@/features/today/useToday';
 import { WeekStreak } from '@/features/today/WeekStreak';
+import { SleepGlance } from '@/features/sleep/parts';
+import { sleepSummary } from '@/lib/sleep';
 import { tradingToday } from '@/lib/derive';
 import { isPerfect, ringDetails, ringsFor, stageOf, streak, weekStrip } from '@/lib/engage';
 import { dayKey, useStore } from '@/lib/store';
@@ -51,6 +53,8 @@ export default function TodayScreen() {
           onCloseDay={() => setSheet('close')}
         />
       </View>
+
+      <SleepGlance sum={sleepSummary(state, now.getTime())} now={now.getTime()} />
 
       <Promises dayKey={key} promises={settings.promises} kept={day?.promises ?? {}} />
 
