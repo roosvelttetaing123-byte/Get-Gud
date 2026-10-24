@@ -1,187 +1,156 @@
 /**
- * Pure helpers for the gate screen. Business rules stay in src/lib/derive.ts;
- * this file only shapes that output for display.
+ * Pure helpers for the gate screen. Business rules live in src/lib/derive.ts
+ * (evaluateGate); this file only shapes data for display.
  */
-import type { Tone } from '@/constants/theme';
-import { EMOTIONS, emotionTone, tradingToday, type Emotion, type TradingToday } from '@/lib/derive';
-import { dayKey, type Settings, type State, type Verdict } from '@/lib/store';
+import { C, SYS, VALENCE } from '@/constants/theme';
+import { EMOTIONS, emotionTone, type TradingToday } from '@/lib/derive';
+import { dayKey, type Settings, type State, type Trade } from '@/lib/store';
 
 export const OVERRIDE_PHRASE = 'I accept the risk';
 
-export type MeaningTone = 'jade' | 'tangerine' | 'coral';
+/** What the trader picks from on "Name it", in display order. */
+export const FEELINGS = EMOTIONS.filter((e) => !e.retired).map((e) => e.label);
 
-export const EMOTION_GROUPS: { tone: MeaningTone; caption: string; aside: string; items: Emotion[] }[] = [
-  { tone: 'jade', caption: 'Good to trade', aside: 'Trade your plan', items: EMOTIONS.filter((e) => e.tone === 'jade') },
-  {
-    tone: 'tangerine',
-    caption: 'Trade smaller',
-    aside: 'Half size or skip',
-    items: EMOTIONS.filter((e) => e.tone === 'tangerine'),
-  },
-  { tone: 'coral', caption: 'Don’t trade', aside: 'Sit this one out', items: EMOTIONS.filter((e) => e.tone === 'coral') },
+/** "What's it about?" */
+export const ASSOCIATIONS = [
+  'After a loss',
+  'After a win',
+  'News',
+  'Tired',
+  'Bored',
+  'Personal life',
+  'Money pressure',
 ];
 
-/** What each emotion group means for the next trade, in two words. */
-export const GROUP_SHORT: Record<MeaningTone, string> = {
-  jade: 'Full size',
-  tangerine: 'Half size',
-  coral: 'Don’t trade',
+export type Meaning = 'good' | 'smaller' | 'stop';
+
+export const meaningOf = (label: string): Meaning => {
+  const t = emotionTone(label);
+  return t === 'coral' ? 'stop' : t === 'tangerine' ? 'smaller' : 'good';
 };
 
-export const VERDICT: Record<Verdict, { word: string; tone: MeaningTone }> = {
-  clear: { word: 'Clear.', tone: 'jade' },
-  wait: { word: 'Wait.', tone: 'tangerine' },
-  stop: { word: 'Stop.', tone: 'coral' },
+export const MEANING: Record<Meaning, { color: string; label: string }> = {
+  good: { color: SYS.green, label: 'Good to trade' },
+  smaller: { color: SYS.orange, label: 'Trade smaller' },
+  stop: { color: SYS.red, label: 'Don’t trade' },
 };
 
-/** Toggle an emotion, keeping the selection in the canonical EMOTIONS order. */
-export function toggleEmotion(selected: string[], label: string): string[] {
+/** The most serious meaning among the picked feelings. */
+export function worstMeaning(picked: string[]): Meaning | null {
+  if (!picked.length) return null;
+  const ms = picked.map(meaningOf);
+  return ms.includes('stop') ? 'stop' : ms.includes('smaller') ? 'smaller' : 'good';
+}
+
+/** Toggle, keeping the canonical order of `all`. */
+export function toggleIn(all: string[], selected: string[], label: string): string[] {
   const on = selected.includes(label);
-  return EMOTIONS.map((e) => e.label).filter((l) => (l === label ? !on : selected.includes(l)));
+  return all.filter((l) => (l === label ? !on : selected.includes(l)));
 }
 
-export type FactKind = 'trades' | 'streak' | 'loss' | 'sleep' | 'mood' | 'open';
+/* ---------- suggestions ---------- */
 
-export interface Fact {
-  kind: FactKind;
-  text: string;
-  tone: Extract<Tone, 'neutral' | 'tangerine' | 'coral'>;
+const BY_VALENCE: Record<number, string[]> = {
+  1: ['Frustrated', 'Revenge', 'Anxious'],
+  2: ['Frustrated', 'Anxious'],
+  3: ['Anxious', 'Tired', 'Impatient'],
+  4: ['Calm', 'Bored'],
+  5: ['Calm', 'Focused'],
+  6: ['Confident', 'Focused'],
+  7: ['Euphoric', 'Confident'],
+};
+
+const closedAt = (t: Trade) => t.closedTs ?? t.ts;
+
+function lastClosed(s: State): Trade | undefined {
+  let best: Trade | undefined;
+  for (const t of s.trades) if (t.taken && t.result && (!best || closedAt(t) > closedAt(best))) best = t;
+  return best;
 }
 
-const plural = (n: number, one: string, many: string) => (n === 1 ? one : many);
-
-function fmtMins(m: number) {
-  if (m < 60) return `${m} min`;
-  const h = Math.floor(m / 60);
-  const r = m % 60;
-  return r ? `${h} h ${r} min` : `${h} h`;
-}
-
-/**
- * Today's facts as the gate will see them. Coral = will trigger stop,
- * tangerine = will trigger wait. Each line says the consequence in words,
- * so colour is never the only signal.
- */
-export function todayFacts(s: State, now: number): Fact[] {
-  const t = tradingToday(s, now);
-  const { maxTrades, maxLossStreak, cooldownMin } = s.settings;
-  const out: Fact[] = [];
-
-  const used = t.taken.length;
-  const trades = (text: string, tone: Fact['tone']) => out.push({ kind: 'trades', text, tone });
-  if (used >= maxTrades) trades(`${used} of ${maxTrades} trades used. Done for today.`, 'coral');
-  else if (used === maxTrades - 1) trades(`${used} of ${maxTrades} trades used. This would be your last.`, 'tangerine');
-  else trades(`${used} of ${maxTrades} trades used.`, 'neutral');
-
-  const n = t.lossStreak;
-  const streak = `${n} ${plural(n, 'loss', 'losses')} in a row`;
-  if (n >= maxLossStreak) out.push({ kind: 'streak', text: `${streak}. Done for today.`, tone: 'coral' });
-  else if (maxLossStreak > 1 && n === maxLossStreak - 1)
-    out.push({ kind: 'streak', text: `${streak}. One more ends your day.`, tone: 'tangerine' });
-  else out.push({ kind: 'streak', text: n === 0 ? 'No losses in a row.' : `${streak}.`, tone: 'neutral' });
-
-  if (t.minsSinceLoss !== null) {
-    const m = t.minsSinceLoss;
-    const when = m < 1 ? 'Last loss just now.' : `Last loss ${fmtMins(m)} ago.`;
-    if (m < cooldownMin) out.push({ kind: 'loss', text: `${when} Cool down ${cooldownMin - m} more min.`, tone: 'coral' });
-    else out.push({ kind: 'loss', text: when, tone: 'neutral' });
+/** Outlined (not selected) hints: feelings from the valence, associations from recent trades. */
+export function suggestions(valence: number, s: State, now: number): { feelings: string[]; about: string[] } {
+  const about: string[] = [];
+  const last = lastClosed(s);
+  if (last && now - closedAt(last) < 2 * 3600_000) {
+    if (last.result === 'loss') about.push('After a loss');
+    if (last.result === 'win') about.push('After a win');
   }
+  return { feelings: BY_VALENCE[valence] ?? [], about };
+}
 
-  const day = s.days[dayKey(now)];
-  if (day?.sleptWell === false) out.push({ kind: 'sleep', text: 'Slept badly last night.', tone: 'tangerine' });
-  if (day?.mood !== undefined && day.mood <= 2) out.push({ kind: 'mood', text: 'Mood is low today.', tone: 'tangerine' });
+/** This morning's check-in valence, if he checked in today. */
+export const morningValence = (s: State, now: number): number | undefined => s.days[dayKey(now)]?.checkin?.valence;
 
-  const open = t.open.length;
-  if (open > 0)
-    out.push({
-      kind: 'open',
-      text: `${open} ${plural(open, 'trade has', 'trades have')} no result yet. Log ${plural(open, 'it', 'them')} so the gate can see ${plural(open, 'it', 'them')}.`,
-      tone: 'neutral',
-    });
+/* ---------- valence colour ---------- */
 
+export type RGB = [number, number, number];
+
+const hexRgb = (hex: string): RGB => {
+  const n = parseInt(hex.replace('#', ''), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+};
+const STOPS = VALENCE.map((v) => hexRgb(v.color));
+
+/** Colour at a fractional position on the 1..7 scale, so tints glide between moods. */
+export function valenceRgb(pos: number): RGB {
+  const x = Math.max(0, Math.min(6, pos - 1));
+  const i = Math.min(5, Math.floor(x));
+  const t = x - i;
+  const a = STOPS[i];
+  const b = STOPS[i + 1];
+  return [0, 1, 2].map((k) => Math.round(a[k] + (b[k] - a[k]) * t)) as RGB;
+}
+
+export const rgba = (c: RGB, a: number) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
+
+export const valenceLabel = (v: number) => VALENCE[Math.max(1, Math.min(7, Math.round(v))) - 1].label;
+
+/* ---------- today's session badges ---------- */
+
+export interface SessionBadge {
+  key: string;
+  label: string;
+  color: string;
+  solid?: boolean;
+}
+
+/** Compact facts for the top of step 1: trades used, loss streak, cool-down, limit. */
+export function sessionBadges(t: TradingToday, s: Settings, coolLeftMin: number | null): SessionBadge[] {
+  const out: SessionBadge[] = [];
+  if (t.limitHit) out.push({ key: 'limit', label: 'Limit hit', color: SYS.red, solid: true });
+  const used = t.taken.length;
+  out.push({
+    key: 'trades',
+    label: `${used}/${s.maxTrades} trades`,
+    color: used >= s.maxTrades ? SYS.red : used === s.maxTrades - 1 ? SYS.orange : C.label,
+  });
+  const n = t.lossStreak;
+  out.push({
+    key: 'streak',
+    label: n === 0 ? 'No losses in a row' : `${n} ${n === 1 ? 'loss' : 'losses'} in a row`,
+    color: n >= s.maxLossStreak ? SYS.red : s.maxLossStreak > 1 && n === s.maxLossStreak - 1 ? SYS.orange : C.label,
+  });
+  if (coolLeftMin !== null) out.push({ key: 'cool', label: `Cool-down ${coolLeftMin} min`, color: SYS.orange });
   return out;
 }
 
-/**
- * True when a stop is driven by loss or by a do-not-trade emotion, i.e. the
- * revenge-trade pattern. Mirrors the loss-related conditions in evaluateGate.
- */
-export function isLossDriven(emotions: string[], s: State, now: number): boolean {
-  const t = tradingToday(s, now);
-  const { maxLossStreak, cooldownMin } = s.settings;
-  const coral = emotions.some((e) => emotionTone(e) === 'coral');
-  const streak = t.lossStreak > 0 && (t.lossStreak >= maxLossStreak || t.lossStreak === maxLossStreak - 1);
-  const cooling = t.minsSinceLoss !== null && t.minsSinceLoss < cooldownMin;
-  return coral || streak || cooling;
-}
-
-/* ---------- the session card on step 1 ---------- */
-
-export interface Session {
-  /** Overall state: coral = the gate will stop you, tangerine = be careful, jade = within limits. */
-  tone: MeaningTone;
-  pill: string;
-  headline: string;
-  line: string;
-  /** Minutes of cool-down left after the last loss, if any. */
-  cooldownLeft: number | null;
-}
-
-/** Today's trading state as one sentence and a status, most serious first. */
-export function sessionSummary(t: TradingToday, s: Settings): Session {
-  const { maxTrades, maxLossStreak, cooldownMin } = s;
-  const used = t.taken.length;
-  const left = Math.max(0, maxTrades - used);
-  const cooldownLeft = t.minsSinceLoss !== null && t.minsSinceLoss < cooldownMin ? cooldownMin - t.minsSinceLoss : null;
-
-  if (t.limitHit)
-    return {
-      tone: 'coral',
-      pill: 'Limit hit',
-      headline: 'Done for today.',
-      line: 'You can still check in. The gate will say stop.',
-      cooldownLeft,
-    };
-  if (cooldownLeft !== null)
-    return {
-      tone: 'coral',
-      pill: 'Cooling down',
-      headline: 'Cool down first.',
-      line: `Last loss ${t.minsSinceLoss} min ago. Give it ${cooldownLeft} more min before the next one.`,
-      cooldownLeft,
-    };
-  if (maxLossStreak > 1 && t.lossStreak === maxLossStreak - 1)
-    return {
-      tone: 'tangerine',
-      pill: 'One loss left',
-      headline: 'One more loss ends your day.',
-      line: 'Be picky. Only take the setup you would show a mentor.',
-      cooldownLeft,
-    };
-  if (used === maxTrades - 1)
-    return {
-      tone: 'tangerine',
-      pill: 'Last trade',
-      headline: 'Last trade of the day.',
-      line: 'Make it one you would take again on a calm day.',
-      cooldownLeft,
-    };
-  if (used === 0)
-    return {
-      tone: 'jade',
-      pill: 'Fresh session',
-      headline: `${maxTrades} ${plural(maxTrades, 'trade', 'trades')} available today.`,
-      line: 'Nothing on the board yet. Start slow and let the setup come to you.',
-      cooldownLeft,
-    };
-  return {
-    tone: 'jade',
-    pill: 'Within limits',
-    headline: `${left} ${plural(left, 'trade', 'trades')} left today.`,
-    line: t.lossStreak === 0 ? 'No losses in a row. Stay patient.' : 'Still inside your limits. Stay patient.',
-    cooldownLeft,
-  };
+/** Minutes left on the cool-down after the last loss, or null. */
+export function coolLeft(s: State, now: number): number | null {
+  let lastLoss: Trade | undefined;
+  for (const t of s.trades)
+    if (t.taken && t.result === 'loss' && (!lastLoss || closedAt(t) > closedAt(lastLoss))) lastLoss = t;
+  if (!lastLoss) return null;
+  const end = closedAt(lastLoss) + s.settings.cooldownMin * 60000;
+  return end > now ? Math.max(1, Math.ceil((end - now) / 60000)) : null;
 }
 
 /** Every time you walked away from a trade, all time. */
 export const walkedTotal = (s: State) => s.trades.filter((t) => !t.taken).length;
+
+/** 14:32 */
+export function clock(ms: number) {
+  const s = Math.max(0, Math.ceil(ms / 1000));
+  const m = Math.floor(s / 60);
+  return `${m}:${String(s % 60).padStart(2, '0')}`;
+}
