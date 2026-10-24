@@ -3,16 +3,24 @@
  *
  * Sleep debt: 14-night rolling window against your sleep need. Recent nights weigh more
  * (last night ~15% of the window, older nights share the rest with exponential decay).
- * Extra sleep pays debt down, capped per night so you can't "bank" sleep.
+ * Extra sleep pays debt down, capped per night so you can't "bank" sleep. Nights you didn't
+ * log count as your typical night (shrunk toward "met your need" while there are few logs),
+ * not as a perfect night, so patchy logging doesn't hide debt.
  *
  * Energy schedule: a two-process model (Borbély).
- *   Process S, sleep pressure, builds while awake and starts higher when you carry debt.
- *   Process C, the circadian rhythm, is anchored to your typical wake time (body-clock low
- *   about 2 h before waking). A 24 h and a 12 h harmonic give the morning rise, the
- *   afternoon dip, the evening wake-maintenance peak and the drop into the melatonin window.
- *   Energy = C - S - sleep inertia. Phases are read off the curve, not hard-coded.
+ *   Process S, sleep pressure, builds while awake (time constant 18.2 h) and drains while
+ *   asleep (4.2 h). Naps you log today drain it on the spot and leave a short grogginess;
+ *   they never change the hours before they happened.
+ *   Process C, the circadian rhythm, is anchored to your body-clock low (from the middle
+ *   of your recent sleeps). A 24 h and a 12 h harmonic give the morning rise, the afternoon
+ *   dip, the evening wake-maintenance peak and the drop into the melatonin window.
+ *   Energy = C - S - sleep inertia - a debt drag (chronic loss lowers the whole day and
+ *   deepens the dip). Phases are read off the curve, not hard-coded.
+ *
+ * Times are wall-clock safe: days are stepped with the calendar, never by adding 24 h,
+ * so daylight-saving changes don't shift the schedule by an hour.
  */
-import type { SleepLog, State } from './store';
+import type { SleepLog, State } from './types';
 
 const H = 3_600_000;
 const M = 60_000;
@@ -36,6 +44,13 @@ export function keyOf(ts: number): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+/** The same wall-clock time `n` calendar days later (or earlier). Safe across daylight saving. */
+export function addDays(ts: number, n: number): number {
+  const d = new Date(ts);
+  d.setDate(d.getDate() + n);
+  return d.getTime();
+}
+
 /** A nap: short, and you woke in the daytime. */
 export function isNap(l: SleepLog): boolean {
   if (l.nap !== undefined) return l.nap;
@@ -43,7 +58,7 @@ export function isNap(l: SleepLog): boolean {
   return (l.wake - l.bed) / H < 3 && h >= 10 && h < 21;
 }
 
-const minuteOfDay = (ts: number) => {
+export const minuteOfDay = (ts: number) => {
   const d = new Date(ts);
   return d.getHours() * 60 + d.getMinutes();
 };
@@ -56,6 +71,12 @@ function clockMedian(mins: number[]): number | undefined {
   const un = mins.map((m) => (m - ref > 720 ? m - 1440 : ref - m > 720 ? m + 1440 : m)).sort((a, b) => a - b);
   const mid = un[Math.floor(un.length / 2)];
   return ((mid % 1440) + 1440) % 1440;
+}
+
+function median(xs: number[]): number {
+  const s = [...xs].sort((a, b) => a - b);
+  const n = s.length;
+  return n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2;
 }
 
 /* ---------- nights and debt ---------- */
@@ -104,31 +125,59 @@ export const DEBT_WEIGHTS: number[] = (() => {
 
 /** Max surplus hours one night can pay back. */
 const SURPLUS_CAP = 1.5;
+/**
+ * How hard a missing night leans on your typical night: with k logged nights it counts as
+ * k / (k + 3) of your median shortfall. 3 logs: half; 12 logs: 80%.
+ */
+const IMPUTE_PRIOR = 3;
+/** Logged main nights needed before missing nights are filled in at all. */
+const IMPUTE_MIN = 3;
 
 export interface Debt {
   hours: number; // sleep debt, >= 0
   known: number; // nights with data in the window
   lastNight?: number; // hours slept last night (incl. naps yesterday-to-today)
   zone: 'low' | 'moderate' | 'high';
+  /** Share of the window's weight that comes from logged nights, 0..1. The rest is estimated. */
+  coverage: number;
 }
+
+const capSurplus = (diff: number) => (diff < 0 ? Math.max(diff, -SURPLUS_CAP) : diff);
 
 /**
  * Debt = 14 x weighted mean nightly shortfall. A steady 1 h short every night gives ~14 h;
- * one bad night (2 h short) gives ~4 h. Nights without data count as neither short nor long.
+ * one bad night (2 h short) gives ~4 h. A night you didn't log counts as your typical
+ * shortfall once 3 main nights are logged (shrunk toward zero while logs are few); before
+ * that it counts as neither short nor long. A day with only a nap logged counts as a
+ * missing night plus that nap.
  */
 export function sleepDebt(logs: SleepLog[], need: number, now = Date.now()): Debt {
-  const ns = nights(logs, now).reverse(); // index 0 = today (last night)
+  return debtOver(nights(logs, now).reverse(), need);
+}
+
+/** Debt over a window of nights, index 0 = last night. The maths of sleepDebt, for callers that try many needs. */
+export function debtOver(ns: Night[], need: number): Debt {
+  const mains = ns.filter((n) => n.main);
+  const typical =
+    mains.length >= IMPUTE_MIN
+      ? (median(mains.map((n) => capSurplus(need - n.hours))) * mains.length) / (mains.length + IMPUTE_PRIOR)
+      : 0;
   let sum = 0;
   let known = 0;
+  let coverage = 0;
   ns.forEach((n, i) => {
-    if (!n.main && n.naps === 0) return;
-    known++;
-    const diff = need - n.hours;
-    sum += DEBT_WEIGHTS[i] * DEBT_WINDOW * (diff < 0 ? Math.max(diff, -SURPLUS_CAP) : diff);
+    let diff: number;
+    if (n.main) diff = capSurplus(need - n.hours);
+    else if (mains.length >= IMPUTE_MIN) diff = capSurplus(typical - n.naps);
+    else if (n.naps > 0) diff = capSurplus(need - n.naps);
+    else return;
+    if (n.main || n.naps > 0) known++;
+    if (n.main) coverage += DEBT_WEIGHTS[i];
+    sum += DEBT_WEIGHTS[i] * DEBT_WINDOW * diff;
   });
   const hours = Math.max(0, sum);
   const last = ns[0].main || ns[0].naps ? ns[0].hours : undefined;
-  return { hours, known, lastNight: last, zone: debtZone(hours) };
+  return { hours, known, lastNight: last, zone: debtZone(hours), coverage: Math.min(1, coverage) };
 }
 
 export const debtZone = (h: number): Debt['zone'] => (h < 5 ? 'low' : h < 10 ? 'moderate' : 'high');
@@ -174,7 +223,10 @@ export function parseClock(s: string): number | undefined {
 /* ---------- energy model ---------- */
 
 const TAU_WAKE = 18.2; // h, rise time constant of sleep pressure
+const TAU_SLEEP = 4.2; // h, decay time constant of sleep pressure while asleep
 const INERTIA_TAU = 0.6; // h
+/** Sleep pressure at the end of a full night, on the model's 0..1 scale. */
+const S_WAKE = 0.18;
 
 /*
  * Coefficients fitted (least squares) to the shape of a rested day: groggy first 90 min,
@@ -189,18 +241,57 @@ function circadian(h: number): number {
   return FIT.a1 * Math.cos(w * (h - FIT.p1)) + FIT.a2 * Math.cos(2 * w * (h - FIT.p2));
 }
 
+/** Sleep pressure t hours after a full night, before any nap. */
+const pressure = (t: number) => 1 - (1 - S_WAKE) * Math.exp(-t / TAU_WAKE);
+
 /**
  * Energy 0..100 at `t` hours after today's wake.
  * Debt drags the whole day down (up to 30 points) and digs the afternoon dip deeper.
+ * `relief` is sleep pressure drained by naps so far; `napInertia` the grogginess they left.
  */
-export function energyAt(t: number, debt: number, wakeShift = 0): number {
+export function energyAt(t: number, debt: number, wakeShift = 0, relief = 0, napInertia = 0): number {
   // wakeShift: today's wake minus typical wake, in hours. The body clock doesn't move with one late morning.
   const h = 2 + wakeShift + t;
-  const S = 1 - (1 - 0.18) * Math.exp(-t / TAU_WAKE);
-  const inertia = 0.55 * Math.exp(-t / (INERTIA_TAU * (1 + Math.min(0.6, debt * 0.04))));
+  const S = pressure(t) - relief;
+  const inertia = 0.55 * Math.exp(-t / (INERTIA_TAU * (1 + Math.min(0.6, debt * 0.04)))) + napInertia;
   const raw = circadian(h) - FIT.k * S - inertia;
   const drag = Math.min(30, debt * 1.8) * (0.65 + 0.35 * Math.exp(-(((t - 8) / 2.2) ** 2)));
   return Math.max(0, Math.min(100, FIT.base + FIT.scale * raw - drag));
+}
+
+interface NapEffect {
+  end: number; // hours after wake
+  relief: number; // sleep pressure drained, model units
+  amp: number; // grogginess right after, model units
+  tau: number; // h, how fast it fades
+  debt: number; // sleep debt once this nap is counted
+}
+
+/**
+ * What each of today's naps does to the rest of the day. Sleep pressure drains at the
+ * two-process rate while you're asleep, so a 20 min nap is a small lift and a 90 min one
+ * a bigger lift with more grogginess after it.
+ */
+function napEffects(naps: SleepLog[], wakeAt: number, debts: number[]): NapEffect[] {
+  const out: NapEffect[] = [];
+  const reliefAt = (t: number) =>
+    out.reduce((a, f) => a + (t >= f.end ? f.relief * Math.exp(-(t - f.end) / TAU_WAKE) : 0), 0);
+  naps.forEach((n, j) => {
+    const start = (n.bed - wakeAt) / H + (n.latencyMin ?? 0) / 60;
+    const end = (n.wake - wakeAt) / H;
+    const slept = asleepHours(n);
+    const before = pressure(start) - reliefAt(start);
+    const after = before * Math.exp(-slept / TAU_SLEEP);
+    const awakeThrough = pressure(end) - reliefAt(end); // had you stayed up instead
+    out.push({
+      end,
+      relief: Math.max(0, awakeThrough - after),
+      amp: 0.15 + 0.25 * Math.min(1, slept),
+      tau: 0.2 + 0.3 * Math.min(1, slept / 1.5),
+      debt: debts[j],
+    });
+  });
+  return out;
 }
 
 export type PhaseId = 'groggy' | 'peak1' | 'dip' | 'peak2' | 'winddown' | 'melatonin' | 'sleep';
@@ -245,53 +336,76 @@ function phaseLabel(id: PhaseId, mid: number): string {
   return PHASE_COPY[id].label;
 }
 
-/** Start of the local day of `now`, plus `min` minutes. */
+/** `min` minutes into the local day of `now` (wall clock, so 07:00 stays 07:00 on a daylight-saving day). */
 const atMinute = (now: number, min: number) => {
   const d = new Date(now);
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() + min * M;
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, min).getTime();
 };
 
 /**
  * Today's energy schedule. Uses this morning's real wake time when logged, otherwise your typical wake.
  * After midnight but before your wake time, "today" is still the previous day's schedule.
+ * `debt` is your debt now; naps logged today are taken out of it for the hours before them.
  */
 export function schedule(logs: SleepLog[], need: number, debt: number, now = Date.now(), wakeGoal?: string): Schedule {
   const clock = bodyClock(logs, need, wakeGoal);
   // Which wake does "today" hang off? If we're before typical wake (with 3 h slack), use yesterday's.
   let base = now;
-  if (minuteOfDay(now) < clock.wake - 180 || (minuteOfDay(now) < clock.wake && minuteOfDay(now) < 300)) base = now - 24 * H;
+  if (minuteOfDay(now) < clock.wake - 180 || (minuteOfDay(now) < clock.wake && minuteOfDay(now) < 300)) base = addDays(now, -1);
   const typicalWake = atMinute(base, clock.wake);
   const todayKey = keyOf(base);
   const real = logs.find((l) => !isNap(l) && keyOf(l.wake) === todayKey);
   const wakeAt = real ? real.wake : typicalWake;
   // Body-clock low before this morning's typical wake. The model expects waking 2 h after it.
   let nadirAt = atMinute(base, clock.nadir);
-  if (nadirAt > typicalWake) nadirAt -= 24 * H;
-  if (typicalWake - nadirAt > 12 * H) nadirAt += 24 * H;
+  if (nadirAt > typicalWake) nadirAt = addDays(nadirAt, -1);
+  if (typicalWake - nadirAt > 12 * H) nadirAt = addDays(nadirAt, 1);
   const shift = (wakeAt - (nadirAt + 2 * H)) / H;
 
   // Melatonin window: 1 h, from 15 min before a full-need sleep centred on your body clock would start.
-  const melStart = nadirAt + 24 * H - 105 * M - (need / 2) * H - 15 * M;
+  const melStart = addDays(nadirAt, 1) - 105 * M - (need / 2) * H - 15 * M;
   const melEnd = melStart + 60 * M;
-  const nextWake = typicalWake + 24 * H;
+  const nextWake = addDays(typicalWake, 1);
   const bedtimeForNeed = nextWake - need * H - DEFAULT_LATENCY * M;
 
-  // Curve every 10 min from wake to melatonin end.
+  // Naps after this morning's wake: they count toward debt only from the moment they end.
+  const naps = logs.filter((l) => isNap(l) && l.bed >= wakeAt && l.wake <= melEnd).sort((a, b) => a.wake - b.wake);
+  const without = (from: number) => logs.filter((l) => !naps.slice(from).includes(l));
+  const morningDebt = naps.length ? sleepDebt(without(0), need, now).hours : debt;
+  const fx = napEffects(
+    naps,
+    wakeAt,
+    naps.map((_, j) => sleepDebt(without(j + 1), need, now).hours),
+  );
+
+  // Curve every 10 min from wake to melatonin end. Phases come from the nap-free curve so a nap never moves them.
   const span = (melEnd - wakeAt) / H;
+  const plain: { t: number; e: number }[] = [];
   const curve: { t: number; e: number }[] = [];
-  for (let x = 0; x <= span + 1e-6; x += 1 / 6) curve.push({ t: wakeAt + x * H, e: energyAt(x, debt, shift) });
+  for (let x = 0; x <= span + 1e-6; x += 1 / 6) {
+    const t = wakeAt + x * H;
+    plain.push({ t, e: energyAt(x, morningDebt, shift) });
+    const done = fx.filter((f) => x >= f.end);
+    if (!done.length) {
+      curve.push({ t, e: plain[plain.length - 1].e });
+      continue;
+    }
+    const relief = done.reduce((a, f) => a + f.relief * Math.exp(-(x - f.end) / TAU_WAKE), 0);
+    const groggy = done.reduce((a, f) => a + f.amp * Math.exp(-(x - f.end) / f.tau), 0);
+    curve.push({ t, e: energyAt(x, done[done.length - 1].debt, shift, relief, groggy) });
+  }
 
   // Read phases off the curve.
-  const at = (i: number) => curve[Math.max(0, Math.min(curve.length - 1, i))];
+  const at = (i: number) => plain[Math.max(0, Math.min(plain.length - 1, i))];
   const idx = (hours: number) => Math.round(hours * 6);
   const between = (a: number, b: number, pick: 'max' | 'min') => {
     let best = idx(a);
-    for (let i = idx(a); i <= Math.min(idx(b), curve.length - 1); i++) {
-      if (pick === 'max' ? curve[i].e > curve[best].e : curve[i].e < curve[best].e) best = i;
+    for (let i = idx(a); i <= Math.min(idx(b), plain.length - 1); i++) {
+      if (pick === 'max' ? plain[i].e > plain[best].e : plain[i].e < plain[best].e) best = i;
     }
     return best;
   };
-  const groggyEnd = Math.min(idx(1.5 + Math.min(1, debt * 0.06)), curve.length - 1);
+  const groggyEnd = Math.min(idx(1.5 + Math.min(1, morningDebt * 0.06)), plain.length - 1);
   const p1 = between(1.5, 6, 'max');
   const dip = between(5, 10, 'min');
   const p2 = between(Math.max(dip / 6 + 1, 8), Math.max(9, span - 1), 'max');
@@ -323,6 +437,21 @@ export function schedule(logs: SleepLog[], need: number, debt: number, now = Dat
 
 export function phaseAt(s: Schedule, now = Date.now()): Phase | undefined {
   return s.phases.find((p) => now >= p.start && now < p.end);
+}
+
+/** Energy at `ts`, read off the schedule's 10-minute curve. Undefined outside today's waking hours. */
+export function energyOn(sched: Schedule, ts: number): number | undefined {
+  const c = sched.curve;
+  if (!c.length || ts < c[0].t || ts > c[c.length - 1].t) return undefined;
+  for (let i = 1; i < c.length; i++) {
+    if (c[i].t >= ts) {
+      const a = c[i - 1];
+      const b = c[i];
+      const f = b.t === a.t ? 0 : (ts - a.t) / (b.t - a.t);
+      return Math.round(a.e + (b.e - a.e) * f);
+    }
+  }
+  return Math.round(c[c.length - 1].e);
 }
 
 /* ---------- habits ---------- */
@@ -378,8 +507,8 @@ export function fmtDur(hours: number): string {
   const total = Math.round(hours * 60);
   const h = Math.floor(total / 60);
   const m = total % 60;
-  if (!h) return `${m} m`;
-  return m ? `${h} h ${m} m` : `${h} h`;
+  if (!h) return `${m} m`;
+  return m ? `${h} h ${m} m` : `${h} h`;
 }
 
 /** "3.4 h" style, one decimal under 10. */

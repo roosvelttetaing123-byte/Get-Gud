@@ -6,14 +6,12 @@ import { View } from 'react-native';
 
 import { C, S } from '@/constants/theme';
 import { fmtRx } from '@/features/journal/format';
-import { clockLabel, type Schedule } from '@/lib/sleep';
+import { addDays, clockLabel, type Schedule } from '@/lib/sleep';
 import { EDGE_MIN, tradeWindows, type SleepEdge, type TradeWindow } from '@/lib/sleepEdge';
 import { Card, Divider, Txt } from '@/ui';
 
 import { EdgeRow } from './EdgeRow';
 import { PHASE_LOOK } from './look';
-
-const H = 3_600_000;
 
 function why(w: TradeWindow, learned: boolean): string {
   const s = w.stat;
@@ -40,7 +38,7 @@ export function TradeWindows({ sched, edge, now }: { sched: Schedule; edge: Slee
             {hero
               ? `${clockLabel(hero.start)}–${clockLabel(hero.end)}`
               : tomorrow
-                ? `Tomorrow ${clockLabel(tomorrow.start + 24 * H)}`
+                ? `Tomorrow ${clockLabel(addDays(tomorrow.start, 1))}`
                 : 'Rest up'}
           </Txt>
           <Txt v="subhead" color={C.label2}>
@@ -83,7 +81,7 @@ export function TradeWindows({ sched, edge, now }: { sched: Schedule; edge: Slee
 
       <Txt v="footnote" color={C.label2} style={{ paddingHorizontal: S.lg }}>
         {learned
-          ? 'Windows are the phases where your own trades come out ahead.'
+          ? 'Your best phases, from your own trades. Market sessions play a part too.'
           : `Your two energy peaks. After ${EDGE_MIN} trades in two phases, this learns from your results.`}
       </Txt>
     </View>

@@ -4,9 +4,13 @@
  * Every trade is matched to how rested you were when you hit the gate, using only the
  * sleep you had logged by then (so a Health import later fills in old trades too):
  * last night's hours, 14-night sleep debt, and where you were on your energy curve.
+ *
+ * Rows show plain facts (your real averages). Sentences and decisions are held to more:
+ * enough trades per group, small groups pulled toward your overall average, and a gap
+ * bigger than its own noise before the app says one group beats another.
  */
-import { bodyClock, keyOf, sleepSummary, type PhaseId, type Schedule } from './sleep';
-import type { State, Trade } from './store';
+import { bodyClock, energyOn, keyOf, sleepSummary, type PhaseId, type Schedule } from './sleep';
+import type { State, Trade } from './types';
 
 export type RestBand = 'rested' | 'some' | 'short' | 'heavy';
 
@@ -17,21 +21,6 @@ export interface TradeRest {
   phase?: PhaseId; // undefined until your body clock rests on 3+ nights
   phaseLabel?: string; // clock-aware name, e.g. "Morning peak" or "Second peak"
   energy?: number; // 0-100 on your energy curve
-}
-
-/** Energy at `ts`, read off the schedule's 10-minute curve. */
-export function energyOn(sched: Schedule, ts: number): number | undefined {
-  const c = sched.curve;
-  if (!c.length || ts < c[0].t || ts > c[c.length - 1].t) return undefined;
-  for (let i = 1; i < c.length; i++) {
-    if (c[i].t >= ts) {
-      const a = c[i - 1];
-      const b = c[i];
-      const f = b.t === a.t ? 0 : (ts - a.t) / (b.t - a.t);
-      return Math.round(a.e + (b.e - a.e) * f);
-    }
-  }
-  return Math.round(c[c.length - 1].e);
 }
 
 /** How rested you were at `ts`, from what you had logged by then. */
@@ -65,6 +54,7 @@ export interface EdgeBucket<K extends string = string> {
   n: number;
   winRate: number; // 0-1
   avgR: number;
+  sdR: number; // spread of R per trade (sample standard deviation, 0 under 2 trades)
 }
 
 export const REST_LABEL: Record<RestBand, string> = {
@@ -79,6 +69,7 @@ const PHASE_ORDER: PhaseId[] = ['groggy', 'peak1', 'dip', 'peak2', 'winddown', '
 export interface SleepEdge {
   closed: number; // closed trades
   matched: number; // closed trades with a rest band
+  avgR: number; // across all closed trades
   byRest: EdgeBucket<RestBand>[]; // fixed order, only bands you've traded in
   byPhase: EdgeBucket<PhaseId>[]; // order of the day
 }
@@ -87,12 +78,16 @@ const r2 = (x: number) => Math.round(x * 100) / 100;
 
 function bucket<K extends string>(id: K, label: string, ts: Trade[]): EdgeBucket<K> {
   const n = ts.length;
+  const rs = ts.map((t) => t.r ?? 0);
+  const mean = n ? rs.reduce((a, b) => a + b, 0) / n : 0;
+  const sd = n > 1 ? Math.sqrt(rs.reduce((a, r) => a + (r - mean) ** 2, 0) / (n - 1)) : 0;
   return {
     id,
     label,
     n,
     winRate: n ? ts.filter((t) => t.result === 'win').length / n : 0,
-    avgR: n ? r2(ts.reduce((a, t) => a + (t.r ?? 0), 0) / n) : 0,
+    avgR: r2(mean),
+    sdR: r2(sd),
   };
 }
 
@@ -109,30 +104,49 @@ export function sleepEdge(s: State): SleepEdge {
     const newest = [...ts].sort((a, b) => b.ts - a.ts)[0];
     return bucket(p, (newest && rest.get(newest.id)?.phaseLabel) || p, ts);
   }).filter((b) => b.n > 0);
-  return { closed: closed.length, matched: closed.filter((t) => rest.get(t.id)?.band).length, byRest, byPhase };
+  return {
+    closed: closed.length,
+    matched: closed.filter((t) => rest.get(t.id)?.band).length,
+    avgR: bucket('all', 'All', closed).avgR,
+    byRest,
+    byPhase,
+  };
 }
 
-/** Trades in a bucket before its numbers are worth a sentence. */
-export const EDGE_MIN = 3;
+/** Trades a group needs before the app says anything about it. */
+export const EDGE_MIN = 5;
+/** Pull toward your overall average, worth this many trades. 5 trades of evidence = half your own, half the average. */
+const SHRINK = 5;
 
-/** One line comparing rested trading with your worst tired band, or null if there's not enough yet. */
+/** A group's average pulled toward the overall one, so 5 lucky trades don't read as an edge. */
+export const shrunk = (b: EdgeBucket, overall: number) => (b.n * b.avgR + SHRINK * overall) / (b.n + SHRINK);
+
+/** True when the gap between two groups is bigger than its own noise (one standard error). */
+export function clearGap(a: EdgeBucket, b: EdgeBucket): boolean {
+  const se = Math.sqrt(a.sdR ** 2 / a.n + b.sdR ** 2 / b.n);
+  return Math.abs(a.avgR - b.avgR) > se;
+}
+
+/** One line comparing rested trading with your worst tired band, or null if the data can't back it yet. */
 export function restLine(e: SleepEdge): { rested: EdgeBucket<RestBand>; tired: EdgeBucket<RestBand> } | null {
   const rested = e.byRest.find((b) => b.id === 'rested' && b.n >= EDGE_MIN);
   const tired = e.byRest.filter((b) => b.id !== 'rested' && b.n >= EDGE_MIN).sort((a, b) => a.avgR - b.avgR)[0];
-  if (!rested || !tired || rested.avgR === tired.avgR) return null;
+  if (!rested || !tired || rested.avgR === tired.avgR || !clearGap(rested, tired)) return null;
   return { rested, tired };
 }
 
 /**
- * When to trade today. Learned once 2+ phases have 3+ trades: phases where you average
- * above zero. Until then, your two energy peaks. Grogginess and night phases never count.
+ * When to trade today. Learned once 2+ daytime phases have 5+ trades: the better half of
+ * them by shrunk average, if that's above zero. Until then, your two energy peaks.
+ * Grogginess and night phases never count.
  */
 export function goodPhases(e: SleepEdge): { ids: PhaseId[]; learned: boolean } {
   const never: PhaseId[] = ['groggy', 'melatonin', 'sleep'];
   const solid = e.byPhase.filter((b) => b.n >= EDGE_MIN && !never.includes(b.id));
   if (solid.length >= 2) {
-    const ids = solid.filter((b) => b.avgR > 0).map((b) => b.id);
-    if (ids.length) return { ids, learned: true };
+    const ranked = solid.map((b) => ({ id: b.id, v: shrunk(b, e.avgR) })).sort((a, b) => b.v - a.v);
+    const best = ranked.slice(0, Math.ceil(ranked.length / 2)).filter((x) => x.v > 0);
+    if (best.length) return { ids: PHASE_ORDER.filter((p) => best.some((x) => x.id === p)), learned: true };
   }
   return { ids: ['peak1', 'peak2'], learned: false };
 }

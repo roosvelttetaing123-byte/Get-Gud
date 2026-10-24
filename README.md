@@ -30,6 +30,7 @@ npm run deploy   # builds the web app and pushes it to the gh-pages branch
 npx expo start --web    # live preview in the browser at /Get-Gud/
 npx expo start          # Expo Go on a phone
 npm run typecheck && npm run lint
+npm run test:engine      # sleep engine tests (Node's test runner, three time zones)
 ```
 
 A native App Store build is also possible later with EAS (`npx eas-cli@latest build --platform ios`).
@@ -44,6 +45,8 @@ src/
   constants/      design tokens (colour = meaning)
   lib/store.ts    on-device state + actions
   lib/derive.ts   gate rules, streaks, journal stats (pure functions)
+  lib/sleep.ts    sleep engine: debt, body clock, energy curve (pure)
+  lib/sleepEdge.ts, sleepNeed.ts, modelFit.ts   sleep vs results, learned need, model fit (pure)
   lib/engage.ts   rings, streak freezes, medals
   ui/             component kit (Apple iOS 26 patterns)
 DESIGN.md         design and copy rules
