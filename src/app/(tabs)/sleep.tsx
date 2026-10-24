@@ -121,7 +121,7 @@ export default function SleepScreen() {
           icon={Heart}
           iconColor={HEALTH_PINK}
           title="Apple Health"
-          subtitle={linked ? 'Garmin, Apple Watch' : 'Import Garmin or Apple Watch sleep'}
+          subtitle={state.settings.healthGist ? 'Auto sync on' : linked ? 'Garmin, Apple Watch' : 'Import Garmin or Apple Watch sleep'}
           chevron
           onPress={() => setHealth(true)}
         />

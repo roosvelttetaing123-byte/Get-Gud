@@ -6,6 +6,7 @@ import { useEffect } from 'react';
 import { C } from '@/constants/theme';
 import { AwardWatcher } from '@/features/awards/AwardWatcher';
 import { UpdatePill } from '@/features/shell/UpdatePill';
+import { HealthSync } from '@/features/sleep/HealthSync';
 import { SleepMode } from '@/features/sleep/SleepMode';
 import { initPwa } from '@/lib/pwa';
 import { getState } from '@/lib/store';
@@ -40,6 +41,7 @@ export default function RootLayout() {
       </Stack>
       <AwardWatcher />
       <SleepMode />
+      <HealthSync />
       <UpdatePill />
     </ThemeProvider>
   );

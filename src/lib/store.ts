@@ -95,6 +95,7 @@ export interface Settings {
   sleepNeed: number; // hours a night
   wakeGoal: string; // "HH:MM", used until there are logged nights
   healthImport: boolean; // imported from Apple Health at least once
+  healthGist: string; // secret gist id the Shortcut writes to ('' = off)
   onboarded: boolean;
 }
 
@@ -107,6 +108,7 @@ export interface State {
   sleeps: SleepLog[]; // newest first (by wake)
   sleepSession?: { bed: number }; // sleep mode is running
   sleepHabits?: Record<string, string[]>; // dayKey -> habit ids done
+  healthSync?: { at: number; ok: boolean; message: string; dataAt?: number }; // last automatic pull
   awards: Record<string, number>; // award id -> earned timestamp
   seenAwards: string[]; // award ids already celebrated
   lastReconciled?: string; // dayKey when streak freezes were last applied
@@ -133,6 +135,7 @@ export const DEFAULT_SETTINGS: Settings = {
   sleepNeed: 8,
   wakeGoal: '07:00',
   healthImport: false,
+  healthGist: '',
   onboarded: false,
 };
 
@@ -295,6 +298,10 @@ export const actions = {
     }
     if (changed) commit({ ...state, sleeps: sleeps.sort((a, b) => b.wake - a.wake) });
     return changed;
+  },
+
+  setHealthSync(info: State['healthSync']) {
+    commit({ ...state, healthSync: info });
   },
 
   deleteSleep(id: string) {
