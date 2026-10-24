@@ -13,9 +13,16 @@ import { Card, Divider, Txt } from '@/ui';
 import { EdgeRow } from './EdgeRow';
 import { PHASE_LOOK } from './look';
 
+/** Phases where the body clock runs low. A good result there is likely the market session, not your energy. */
+const LOW_ENERGY = new Set(['groggy', 'dip', 'winddown']);
+
 function why(w: TradeWindow, learned: boolean): string {
   const s = w.stat;
-  if (learned && s && s.n >= EDGE_MIN) return `${w.label}. You average ${fmtRx(s.avgR)} here.`;
+  if (learned && s && s.n >= EDGE_MIN) {
+    const base = `${w.label}. You average ${fmtRx(s.avgR)} here.`;
+    // Don't let this contradict the Energy card above: say why it still works, and how to trade it.
+    return LOW_ENERGY.has(w.phase) ? `${base} Energy is low, so take A+ setups only.` : base;
+  }
   return `${w.label}. Your sharpest hours.`;
 }
 

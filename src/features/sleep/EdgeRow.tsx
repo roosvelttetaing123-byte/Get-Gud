@@ -29,7 +29,7 @@ export function EdgeRow({
   max: number;
   icon: LucideIcon;
   color: string;
-  /** Right-hand text instead of the subtitle's trades line, e.g. a time range. */
+  /** Extra line above the trades line, e.g. a time range. */
   value?: string;
 }) {
   const rc = rColor(b.avgR);
@@ -50,8 +50,13 @@ export function EdgeRow({
             <Txt v="body" weight="600" numberOfLines={1}>
               {b.label}
             </Txt>
+            {value ? (
+              <Txt v="footnote" color={C.label2} numberOfLines={1} tabular>
+                {value}
+              </Txt>
+            ) : null}
             <Txt v="footnote" color={C.label2} numberOfLines={1}>
-              {value ? `${value} · ${facts}` : facts}
+              {facts}
             </Txt>
           </View>
           <Num size={20} weight="700" color={rc}>
