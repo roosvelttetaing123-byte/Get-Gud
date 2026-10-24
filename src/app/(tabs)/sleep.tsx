@@ -3,7 +3,7 @@
  * body clock, timed habits for tonight, and your nights. "Start sleep mode" is the one action.
  */
 import { useFocusEffect } from 'expo-router';
-import { Moon, Plus } from 'lucide-react-native';
+import { Heart, Moon, Plus } from 'lucide-react-native';
 import { useCallback, useMemo, useState } from 'react';
 import { View } from 'react-native';
 
@@ -11,6 +11,8 @@ import { C, S } from '@/constants/theme';
 import { TimePill } from '@/features/settings/TimePill';
 import { DebtCard } from '@/features/sleep/DebtCard';
 import { EnergyCard } from '@/features/sleep/EnergyCard';
+import { HEALTH_PINK, HealthSheet, importFromClipboard, resultLine } from '@/features/sleep/HealthSheet';
+import { haptic } from '@/lib/haptics';
 import { LogSheet } from '@/features/sleep/LogSheet';
 import { SLEEP_TINT } from '@/features/sleep/look';
 import { Habits } from '@/features/sleep/parts';
@@ -22,11 +24,30 @@ import { Button, Group, IconButton, ListRow, Screen, Section, Stepper, Txt } fro
 
 const DAY = new Intl.DateTimeFormat(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
 
+/** "23:05–06:40" plus stages when the watch recorded them. */
+function nightLine(l: SleepLog) {
+  const span = `${clockLabel(l.bed)}–${clockLabel(l.wake)}`;
+  const st = l.stages;
+  if (!st || !(st.deep || st.rem)) return l.source === 'health' ? `${span}  ·  Health` : span;
+  const m = (x = 0) => fmtDur(x / 60).replace(/\u00a0/g, '');
+  return `${span}  ·  Deep ${m(st.deep)}  ·  REM ${m(st.rem)}`;
+}
+
 export default function SleepScreen() {
   const state = useStore();
   const [now, refresh] = useNow(60_000);
   useFocusEffect(useCallback(() => refresh(), [refresh]));
   const [sheet, setSheet] = useState<{ log?: SleepLog } | null>(null);
+  const [health, setHealth] = useState(false);
+  const [note, setNote] = useState<string | undefined>();
+  const linked = state.settings.healthImport;
+  const quickImport = () => {
+    importFromClipboard().then((r) => {
+      setNote(resultLine(r));
+      if (r.ok) haptic.success();
+      else setHealth(true);
+    });
+  };
 
   const sum = useMemo(() => sleepSummary(state, now), [state, now]);
   const { debt, sched, phase, need } = sum;
@@ -43,7 +64,9 @@ export default function SleepScreen() {
       accessory={<IconButton icon={Plus} label="Log sleep" onPress={() => setSheet({})} />}>
       <View style={{ gap: S.md }}>
         <DebtCard debt={debt} need={need} logs={logs} now={now} />
-        {needsLog && !evening ? (
+        {needsLog && !evening && linked ? (
+          <Button title="Import from Health" icon={Heart} color={HEALTH_PINK} textColor="#FFFFFF" onPress={quickImport} />
+        ) : needsLog && !evening ? (
           <Button title="Log last night" icon={Plus} color={SLEEP_TINT} textColor="#FFFFFF" onPress={() => setSheet({})} />
         ) : (
           <Button
@@ -55,6 +78,11 @@ export default function SleepScreen() {
             onPress={openSleepMode}
           />
         )}
+        {note ? (
+          <Txt v="footnote" color={C.label2} align="center">
+            {note}
+          </Txt>
+        ) : null}
       </View>
 
       <Section title="Energy">
@@ -72,7 +100,7 @@ export default function SleepScreen() {
               <ListRow
                 key={l.id}
                 title={isNap(l) ? `Nap, ${DAY.format(l.wake)}` : DAY.format(l.wake)}
-                subtitle={`${clockLabel(l.bed)}–${clockLabel(l.wake)}`}
+                subtitle={nightLine(l)}
                 value={fmtDur(asleepHours(l))}
                 chevron
                 onPress={() => setSheet({ log: l })}
@@ -88,7 +116,15 @@ export default function SleepScreen() {
 
       <Group
         header="Your sleep"
-        footer="Most adults need 7–9 h. If you feel tired with low debt, raise your need. Wake goal is used until 3 nights are logged.">
+        footer={`${linked ? 'Health sleep replaces taps and manual logs for the same night. ' : ''}Most adults need 7–9 h. If you feel tired with low debt, raise your need. Wake goal is used until 3 nights are logged.`}>
+        <ListRow
+          icon={Heart}
+          iconColor={HEALTH_PINK}
+          title="Apple Health"
+          subtitle={linked ? 'Garmin, Apple Watch' : 'Import Garmin or Apple Watch sleep'}
+          chevron
+          onPress={() => setHealth(true)}
+        />
         <ListRow
           title="Sleep need"
           accessory={
@@ -110,6 +146,7 @@ export default function SleepScreen() {
         />
       </Group>
 
+      <HealthSheet visible={health} onClose={() => setHealth(false)} />
       <LogSheet visible={!!sheet} onClose={() => setSheet(null)} log={sheet?.log} />
     </Screen>
   );

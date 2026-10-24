@@ -76,7 +76,9 @@ export interface SleepLog {
   awakeMin?: number; // minutes awake during the night
   quality?: number; // 1-5 how rested you feel
   nap?: boolean; // forced nap/main; undefined = auto
-  source: 'mode' | 'manual';
+  source: 'mode' | 'manual' | 'health';
+  /** Minutes per stage, when the source has them (Apple Health / Garmin). */
+  stages?: { core?: number; deep?: number; rem?: number; awake?: number };
 }
 
 export interface Settings {
@@ -92,6 +94,7 @@ export interface Settings {
   restDays: number[]; // weekdays (0=Sun) that never break the streak
   sleepNeed: number; // hours a night
   wakeGoal: string; // "HH:MM", used until there are logged nights
+  healthImport: boolean; // imported from Apple Health at least once
   onboarded: boolean;
 }
 
@@ -129,6 +132,7 @@ export const DEFAULT_SETTINGS: Settings = {
   restDays: [],
   sleepNeed: 8,
   wakeGoal: '07:00',
+  healthImport: false,
   onboarded: false,
 };
 
@@ -273,6 +277,24 @@ export const actions = {
     const sleeps = [full, ...rest].sort((a, b) => b.wake - a.wake);
     commit({ ...state, sleeps, sleepSession: undefined });
     return full;
+  },
+
+  /**
+   * Bring in nights from Apple Health. Each one replaces any log it overlaps
+   * (the watch knows better than a tap or a guess). Returns how many were new or changed.
+   */
+  importSleeps(logs: SleepLog[]): number {
+    let sleeps = state.sleeps ?? [];
+    let changed = 0;
+    for (const l of logs) {
+      const same = sleeps.find((x) => x.id === l.id);
+      if (same && same.bed === l.bed && same.wake === l.wake && same.awakeMin === l.awakeMin) continue;
+      sleeps = sleeps.filter((x) => x.id !== l.id && (x.wake <= l.bed || x.bed >= l.wake));
+      sleeps.push(l);
+      changed++;
+    }
+    if (changed) commit({ ...state, sleeps: sleeps.sort((a, b) => b.wake - a.wake) });
+    return changed;
   },
 
   deleteSleep(id: string) {
