@@ -12,7 +12,9 @@ import { HighlightCard } from '@/features/journal/Highlight';
 import { chartSeries, pickHighlight, type Range } from '@/features/journal/insight';
 import { RChart } from '@/features/journal/RChart';
 import { RulesSummary } from '@/features/journal/RulesSummary';
+import { SleepCosts } from '@/features/journal/SleepCosts';
 import { journalStats } from '@/lib/derive';
+import { sleepEdge } from '@/lib/sleepEdge';
 import { useStore } from '@/lib/store';
 import { Button, Empty, IconButton, Screen, Section } from '@/ui';
 
@@ -29,6 +31,7 @@ export default function JournalScreen() {
 
   const stats = useMemo(() => journalStats(state), [state]);
   const highlight = useMemo(() => pickHighlight(stats), [stats]);
+  const edge = useMemo(() => sleepEdge(state), [state]);
   const series = useMemo(() => chartSeries(trades, range, now), [trades, range, now]);
 
   // Newest first, capped, then grouped by day.
@@ -64,6 +67,8 @@ export default function JournalScreen() {
           <FeelingCosts buckets={feelings} />
         </Section>
       ) : null}
+
+      <SleepCosts edge={edge} />
 
       {hasRules ? (
         <Section title="By the rules">

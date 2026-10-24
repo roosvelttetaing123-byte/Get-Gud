@@ -1,0 +1,23 @@
+{
+  "//": "Compiles only the pure sleep engine (no React, no storage) for the engine tests. See scripts/test-engine.sh.",
+  "compilerOptions": {
+    "strict": true,
+    "target": "es2022",
+    "lib": ["es2022"],
+    "module": "node16",
+    "moduleResolution": "node16",
+    "types": [],
+    "skipLibCheck": true,
+    "noEmitOnError": true,
+    "rootDir": "../../src/lib",
+    "outDir": "../../node_modules/.cache/engine-tests"
+  },
+  "files": [
+    "../../src/lib/types.ts",
+    "../../src/lib/sleep.ts",
+    "../../src/lib/sleepEdge.ts",
+    "../../src/lib/sleepNeed.ts",
+    "../../src/lib/modelFit.ts",
+    "../../src/lib/coach.ts"
+  ]
+}

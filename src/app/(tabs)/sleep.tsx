@@ -3,7 +3,7 @@
  * body clock, timed habits for tonight, and your nights. "Start sleep mode" is the one action.
  */
 import { useFocusEffect } from 'expo-router';
-import { Heart, Moon, Plus } from 'lucide-react-native';
+import { Heart, Moon, Plus, Sparkles, Target } from 'lucide-react-native';
 import { useCallback, useMemo, useState } from 'react';
 import { View } from 'react-native';
 
@@ -17,12 +17,17 @@ import { LogSheet } from '@/features/sleep/LogSheet';
 import { SLEEP_TINT } from '@/features/sleep/look';
 import { Habits } from '@/features/sleep/parts';
 import { openSleepMode } from '@/features/sleep/SleepMode';
+import { TradeWindows } from '@/features/sleep/TradeWindows';
+import { FIT_MIN, modelFit, type FitLevel } from '@/lib/modelFit';
 import { asleepHours, clockLabel, fmtDur, isNap, keyOf, sleepSummary } from '@/lib/sleep';
+import { sleepEdge } from '@/lib/sleepEdge';
+import { learnNeed, needSuggestion } from '@/lib/sleepNeed';
 import { actions, useStore, type SleepLog } from '@/lib/store';
 import { useNow } from '@/lib/useNow';
 import { Button, Group, IconButton, ListRow, Screen, Section, Stepper, Txt } from '@/ui';
 
 const DAY = new Intl.DateTimeFormat(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+const FIT_WORD: Record<FitLevel, string> = { learning: 'Learning', good: 'Good', fair: 'Fair', weak: 'Weak' };
 
 /** "23:05–06:40" plus stages when the watch recorded them. */
 function nightLine(l: SleepLog) {
@@ -51,6 +56,10 @@ export default function SleepScreen() {
 
   const sum = useMemo(() => sleepSummary(state, now), [state, now]);
   const { debt, sched, phase, need } = sum;
+  const edge = useMemo(() => sleepEdge(state), [state]);
+  const fit = useMemo(() => modelFit(state), [state]);
+  const learned = useMemo(() => learnNeed(state.sleeps ?? [], state.settings, now), [state, now]);
+  const suggest = needSuggestion(learned, need);
   const logs = state.sleeps ?? [];
   const todayKey = keyOf(sched.wakeAt);
   const done = state.sleepHabits?.[todayKey] ?? [];
@@ -89,6 +98,10 @@ export default function SleepScreen() {
         <EnergyCard sched={sched} now={now} phase={phase} />
       </Section>
 
+      <Section title="Trade windows">
+        <TradeWindows sched={sched} edge={edge} now={now} />
+      </Section>
+
       <Section title="Today">
         <Habits sched={sched} done={done} dayKey={todayKey} now={now} />
       </Section>
@@ -116,7 +129,7 @@ export default function SleepScreen() {
 
       <Group
         header="Your sleep"
-        footer={`${linked ? 'Health sleep replaces taps and manual logs for the same night. ' : ''}Most adults need 7–9 h. If you feel tired with low debt, raise your need. Wake goal is used until 3 nights are logged.`}>
+        footer={`${linked ? 'Health sleep replaces taps and manual logs for the same night. ' : ''}Most adults need 7–9 h. Learned need comes from your rest days, model fit from your morning check-ins. Wake goal is used until 3 nights are logged.`}>
         <ListRow
           icon={Heart}
           iconColor={HEALTH_PINK}
@@ -138,11 +151,38 @@ export default function SleepScreen() {
             />
           }
         />
+        {suggest !== undefined ? (
+          <ListRow
+            icon={Sparkles}
+            iconColor={SLEEP_TINT}
+            title="Learned need"
+            subtitle={`From ${learned.nights} rest-day nights`}
+            accessory={
+              <Button
+                title={`Use ${fmtDur(suggest).replace(/ /g, '')}`}
+                kind="tinted"
+                size="small"
+                color={SLEEP_TINT}
+                onPress={() => {
+                  haptic.success();
+                  actions.updateSettings({ sleepNeed: suggest });
+                }}
+              />
+            }
+          />
+        ) : null}
         <ListRow
           title="Wake goal"
           accessory={
             <TimePill value={state.settings.wakeGoal || '07:00'} onChange={(t) => actions.updateSettings({ wakeGoal: t })} label="Wake goal" />
           }
+        />
+        <ListRow
+          icon={Target}
+          iconColor={C.teal}
+          title="Model fit"
+          subtitle={fit.level === 'learning' ? `${Math.min(fit.days, FIT_MIN)} of ${FIT_MIN} check-ins with energy` : `Curve vs ${fit.days} check-ins`}
+          value={FIT_WORD[fit.level]}
         />
       </Group>
 

@@ -44,6 +44,7 @@
     "ios": "expo start --ios",
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",
+    "test:engine": "./scripts/test-engine.sh",
     "build:web": "./scripts/build-web.sh",
     "deploy": "./scripts/deploy-web.sh"
   },
