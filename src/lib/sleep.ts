@@ -226,12 +226,24 @@ export interface Schedule {
 const PHASE_COPY: Record<PhaseId, { label: string; tip: string }> = {
   groggy: { label: 'Grogginess', tip: 'Get daylight in your eyes. No big calls yet.' },
   peak1: { label: 'Morning peak', tip: 'Hardest work. Charts, study, decisions.' },
-  dip: { label: 'Afternoon dip', tip: 'Easy tasks. A 20 min nap fits here.' },
+  dip: { label: 'Afternoon dip', tip: 'Easy tasks. No big decisions. A 20 min nap fits early in it.' },
   peak2: { label: 'Evening peak', tip: 'Second focus window. Good for training.' },
   winddown: { label: 'Wind-down', tip: 'Dim lights, phone away, no new trades.' },
   melatonin: { label: 'Melatonin window', tip: 'Best time to fall asleep fast.' },
   sleep: { label: 'Sleep', tip: 'Sleep through to your wake time.' },
 };
+
+/**
+ * Names follow the real clock, so a late sleeper never sees "Afternoon dip" at 8 pm.
+ * Daytime names only when the phase actually sits in that part of the day.
+ */
+function phaseLabel(id: PhaseId, mid: number): string {
+  const h = new Date(mid).getHours() + new Date(mid).getMinutes() / 60;
+  if (id === 'peak1') return h >= 5 && h < 12 ? 'Morning peak' : 'First peak';
+  if (id === 'dip') return h >= 12 && h < 17.5 ? 'Afternoon dip' : 'Energy dip';
+  if (id === 'peak2') return h >= 16 && h < 22 ? 'Evening peak' : 'Second peak';
+  return PHASE_COPY[id].label;
+}
 
 /** Start of the local day of `now`, plus `min` minutes. */
 const atMinute = (now: number, min: number) => {
@@ -289,7 +301,13 @@ export function schedule(logs: SleepLog[], need: number, debt: number, now = Dat
   const e1 = at(mid(p1, dip)).t;
   const e2 = at(mid(dip, p2)).t;
 
-  const make = (id: PhaseId, start: number, end: number): Phase => ({ id, start, end, ...PHASE_COPY[id] });
+  const make = (id: PhaseId, start: number, end: number): Phase => ({
+    id,
+    start,
+    end,
+    ...PHASE_COPY[id],
+    label: phaseLabel(id, (start + end) / 2),
+  });
   const phases: Phase[] = [
     make('groggy', wakeAt, at(groggyEnd).t),
     make('peak1', at(groggyEnd).t, e1),
