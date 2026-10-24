@@ -29,6 +29,7 @@ import { NATIVE } from './hooks';
 import { IntensityReadout, IntensitySlider } from './IntensitySlider';
 import { kindMeta } from './kinds';
 import { SURFER_AT, URGE_KINDS, urgeRecord } from './model';
+import { useNow } from '@/lib/useNow';
 
 const SURFER_MEDAL = require('@/assets/3d/medal-urge-surfer.webp');
 
@@ -159,7 +160,7 @@ function KindCard({ kind, selected, onPress }: { kind: string; selected: boolean
 /* ---------- record ---------- */
 
 function Record({ urges }: { urges: Urge[] }) {
-  const [now] = useState(() => Date.now());
+  const [now] = useNow(60_000);
   const r = urgeRecord(urges);
 
   if (!r.total) {

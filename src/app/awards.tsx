@@ -10,13 +10,15 @@ import { S } from '@/constants/theme';
 import { HeroMedal, MedalSection, MedalSheet, StreakStrip } from '@/features/awards/parts';
 import { SECTIONS, latestEarned, medalViews, nextUp, streakInfo } from '@/features/awards/model';
 import { useStore } from '@/lib/store';
+import { useNow } from '@/lib/useNow';
 import { Button, Screen, Section } from '@/ui';
 
 const close = () => (router.canGoBack() ? router.back() : router.replace('/'));
 
 export default function MedalsScreen() {
   const state = useStore();
-  const [now] = useState(() => new Date());
+  const [nowMs] = useNow(60_000);
+  const now = useMemo(() => new Date(nowMs), [nowMs]);
   const views = useMemo(() => medalViews(state), [state]);
   const info = useMemo(() => streakInfo(state, views, now), [state, views, now]);
   const hero = latestEarned(views) ?? nextUp(views);
