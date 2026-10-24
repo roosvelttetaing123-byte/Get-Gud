@@ -18,7 +18,8 @@ const CSS = `
 @keyframes gg-drift-c { 0% { transform: translate3d(-3%, 4%, 0) scale(0.92); } 100% { transform: translate3d(4%, -4%, 0) scale(1.12); } }
 @keyframes gg-breathe { 0%, 100% { transform: translate3d(-50%, -50%, 0) scale(1); } 50% { transform: translate3d(-50%, -50%, 0) scale(1.08); } }
 @keyframes gg-twinkle { 0%, 100% { opacity: 0.15; } 50% { opacity: 0.9; } }
-.gg-blob { position: absolute; border-radius: 50%; will-change: transform; mix-blend-mode: screen; }
+.gg-blob { position: absolute; border-radius: 50%; will-change: transform; }
+.gg-light { mix-blend-mode: screen; }
 .gg-star { position: absolute; border-radius: 50%; background: #fff; animation: gg-twinkle 4.5s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .gg-blob, .gg-star { animation: none !important; } }
 `;
@@ -44,6 +45,18 @@ const STARS = Array.from({ length: 28 }, (_, i) => {
 });
 
 const fill = { position: 'absolute', inset: 0 } as const;
+/** Grain only over the top 60% (where the colour is); overlay keeps black pixels black. */
+const grain = {
+  position: 'absolute',
+  left: 0,
+  right: 0,
+  top: 0,
+  height: '60%',
+  backgroundImage: GRAIN,
+  mixBlendMode: 'overlay',
+  maskImage: 'linear-gradient(180deg, #000 55%, transparent)',
+  WebkitMaskImage: 'linear-gradient(180deg, #000 55%, transparent)',
+} as const;
 const soft = (c: string, a: number) =>
   `radial-gradient(closest-side, ${rgba(c, a)}, ${rgba(c, a * 0.5)} 42%, ${rgba(c, a * 0.12)} 72%, ${rgba(c, 0)})`;
 
@@ -68,7 +81,7 @@ export function Backdrop({ tone }: { tone: BackdropTone }) {
             background: `linear-gradient(180deg, ${MIDNIGHT.top} 0%, ${MIDNIGHT.mid} 46%, ${MIDNIGHT.bottom} 100%)`,
           }}
         />
-        <div style={{ ...fill, backgroundImage: GRAIN, opacity: 0.05, mixBlendMode: 'overlay' }} />
+        <div style={{ ...grain, opacity: 0.05 }} />
       </div>
     );
   }
@@ -123,7 +136,7 @@ export function Backdrop({ tone }: { tone: BackdropTone }) {
         : null}
       {L ? (
         <div
-          className="gg-blob"
+          className="gg-blob gg-light"
           style={{
             left: `${L.x}%`,
             top: `${L.y}%`,
@@ -137,7 +150,7 @@ export function Backdrop({ tone }: { tone: BackdropTone }) {
           }}
         />
       ) : null}
-      <div style={{ ...fill, backgroundImage: GRAIN, opacity: 0.06, mixBlendMode: 'overlay' }} />
+      <div style={{ ...grain, opacity: 0.06 }} />
     </div>
   );
 }
