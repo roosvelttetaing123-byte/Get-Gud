@@ -1,81 +1,97 @@
+/**
+ * Step 3, "Your rules": every rule is a real iOS switch in an inset group,
+ * with a ring that fills as you tick them.
+ */
 import { router } from 'expo-router';
-import { ArrowLeft, ListChecks, Settings, ShieldCheck } from 'lucide-react-native';
+import { ListChecks } from 'lucide-react-native';
 import React from 'react';
-import { View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 
-import { C, S, Tint } from '@/constants/theme';
+import { C, RING, S } from '@/constants/theme';
 import { haptic } from '@/lib/haptics';
-import type { State } from '@/lib/store';
-import { Button, Card, Display, IconBadge, Row, Screen, Section, Sub } from '@/ui/legacy';
+import { Empty, Group, Num, ProgressRing, ToggleRow, Txt } from '@/ui';
 
-import { todayFacts } from './logic';
-import { ChecklistProgress, FactsCard, RuleCard, StepHeader } from './parts';
+import { RULE_COLORS, ruleIcon } from './look';
 
 export function RulesStep({
-  state,
-  now,
+  rules,
   checked,
   onToggle,
-  onBack,
-  onCheck,
 }: {
-  state: State;
-  now: number;
+  rules: string[];
   checked: boolean[];
-  onToggle: (index: number) => void;
-  onBack: () => void;
-  onCheck: () => void;
+  onToggle: (index: number, on: boolean) => void;
 }) {
-  const rules = state.settings.rules;
   const ticked = rules.filter((_, i) => checked[i]).length;
-  const facts = todayFacts(state, now);
-
-  const toggle = (i: number) => {
-    if (!checked[i] && ticked === rules.length - 1) haptic.success();
-    onToggle(i);
-  };
-
+  const all = rules.length > 0 && ticked === rules.length;
   return (
-    <Screen>
-      <StepHeader context="Your checklist" title="Every box, honestly." step={2} />
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.page} showsVerticalScrollIndicator={false}>
+      <View style={styles.head}>
+        <View style={{ flex: 1, gap: 2 }}>
+          <Txt v="title1">Your rules</Txt>
+          <Txt v="subhead" color={C.label2}>
+            {all ? 'All ticked. Run the check.' : 'Tick only what’s true right now.'}
+          </Txt>
+        </View>
+        {rules.length ? (
+          <View accessible accessibilityLabel={`${ticked} of ${rules.length} rules ticked`}>
+            <ProgressRing
+              value={rules.length ? ticked / rules.length : 0}
+              size={68}
+              stroke={8}
+              from={all ? C.green : RING.discipline.from}
+              to={all ? C.mint : RING.discipline.to}
+              track="rgba(255,255,255,0.12)">
+              <View style={{ alignItems: 'center' }}>
+                <Num size={22} weight="700" color={all ? C.green : C.label}>
+                  {ticked}
+                </Num>
+                <Txt v="caption2" color={C.label2} style={{ marginTop: -3 }}>
+                  {`of ${rules.length}`}
+                </Txt>
+              </View>
+            </ProgressRing>
+          </View>
+        ) : null}
+      </View>
 
       {rules.length ? (
-        <>
-          <ChecklistProgress ticked={ticked} total={rules.length} />
-          <View style={{ gap: S.md }}>
-            {rules.map((rule, i) => (
-              <RuleCard key={`${i}-${rule}`} rule={rule} index={i} checked={!!checked[i]} onPress={() => toggle(i)} />
-            ))}
-          </View>
-        </>
+        <Group footer="An unticked rule means Stop.">
+          {rules.map((rule, i) => (
+            <ToggleRow
+              key={`${i}-${rule}`}
+              icon={ruleIcon(rule)}
+              iconColor={RULE_COLORS[i % RULE_COLORS.length]}
+              title={rule}
+              value={!!checked[i]}
+              onChange={(on) => {
+                if (on && ticked === rules.length - 1) haptic.success();
+                onToggle(i, on);
+              }}
+            />
+          ))}
+        </Group>
       ) : (
-        <Card>
-          <Row gap={S.md}>
-            <IconBadge icon={ListChecks} color={C.accent} bg={Tint.accent} />
-            <Display size={20} weight="bold" style={{ flex: 1 }}>
-              No rules yet.
-            </Display>
-          </Row>
-          <Sub>Add your pre-trade checklist in Settings. The gate checks every box before it clears you.</Sub>
-          <Button kind="secondary" icon={Settings} label="Open settings" onPress={() => router.push('/settings')} />
-        </Card>
-      )}
-
-      <Section title="Today" aside="What the gate sees">
-        <FactsCard facts={facts} />
-      </Section>
-
-      <Row gap={S.md}>
-        <Button kind="secondary" icon={ArrowLeft} label="Back" onPress={onBack} style={{ flex: 1 }} />
-        <Button
-          kind="accent"
-          icon={ShieldCheck}
-          label="Check me"
-          onPress={onCheck}
-          disabled={!rules.length}
-          style={{ flex: 1.6 }}
+        <Empty
+          icon={ListChecks}
+          title="No rules yet"
+          message="Add your checklist. The gate checks it every time."
+          action={{ label: 'Open settings', onPress: () => router.push('/settings') }}
         />
-      </Row>
-    </Screen>
+      )}
+    </ScrollView>
   );
 }
+
+const styles = StyleSheet.create({
+  page: {
+    gap: S.xl,
+    width: '100%',
+    maxWidth: 600,
+    alignSelf: 'center',
+    paddingHorizontal: S.margin,
+    paddingTop: S.sm,
+    paddingBottom: S.xxxl,
+  },
+  head: { flexDirection: 'row', alignItems: 'center', gap: S.lg },
+});

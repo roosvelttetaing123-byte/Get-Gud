@@ -1,71 +1,116 @@
-import { ListChecks } from 'lucide-react-native';
+/**
+ * Step 1, "How do you feel?" (Health State of Mind): one big mood shape,
+ * its name, and a slider through the seven mood colours.
+ */
+import { Image } from 'expo-image';
 import React from 'react';
-import { useWindowDimensions, View } from 'react-native';
+import { ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 
-import { S } from '@/constants/theme';
-import type { TradingToday } from '@/lib/derive';
-import type { Settings } from '@/lib/store';
-import { Button, Grid, Screen } from '@/ui/legacy';
+import { C, R, S, VALENCE } from '@/constants/theme';
+import { Badge, Pressy, Txt } from '@/ui';
 
-import { EmotionTile, emotionTitleSize } from './EmotionTile';
-
-import { EMOTION_GROUPS } from './logic';
-import { emotionLook } from './look';
-import { GroupHead, PickedCard, SessionCard, StepHeader } from './parts';
-
-const GAP = 10;
+import type { SessionBadge } from './logic';
+import { MOOD_SHAPES, MoodShape } from './MoodShape';
+import { MoodSlider } from './MoodSlider';
 
 export function FeelStep({
-  selected,
-  onToggle,
-  trading,
-  settings,
-  onNext,
+  valence,
+  onChange,
+  badges,
+  morning,
+  onSameAsMorning,
 }: {
-  selected: string[];
-  onToggle: (label: string) => void;
-  trading: TradingToday;
-  settings: Settings;
-  onNext: () => void;
+  valence: number;
+  onChange: (v: number) => void;
+  badges: SessionBadge[];
+  morning?: number;
+  onSameAsMorning: () => void;
 }) {
-  const { width } = useWindowDimensions();
-  // Screen caps content at 560 wide with 20pt gutters; three columns share two gaps.
-  const column = (Math.min(width, 560) - S.gutter * 2 - GAP * 2) / 3;
-  const titleSize = emotionTitleSize(column);
-
+  const { height } = useWindowDimensions();
+  // The shape takes what's left once the controls fit; the caption goes on short phones.
+  const size = Math.round(Math.max(140, Math.min(240, height - 540)));
+  const short = height < 740;
   return (
-    <Screen>
-      <StepHeader context="Before you touch the chart" title="How do you feel?" step={1} />
-
-      <SessionCard trading={trading} settings={settings} />
-
-      <View style={{ gap: S.xl }}>
-        {EMOTION_GROUPS.map((g) => (
-          <View key={g.tone} style={{ gap: S.md }}>
-            <GroupHead title={g.caption} aside={g.aside} tone={g.tone} />
-            <Grid columns={3} gap={GAP}>
-              {g.items.map((e) => {
-                const look = emotionLook(e.label);
-                return (
-                  <EmotionTile
-                    key={e.label}
-                    label={e.label}
-                    icon={look.icon}
-                    pastel={look.pastel}
-                    selected={selected.includes(e.label)}
-                    titleSize={titleSize}
-                    onPress={() => onToggle(e.label)}
-                  />
-                );
-              })}
-            </Grid>
-          </View>
-        ))}
+    <ScrollView
+      style={{ flex: 1 }}
+      contentContainerStyle={[styles.page, short && { gap: S.md }]}
+      showsVerticalScrollIndicator={false}
+      alwaysBounceVertical={false}>
+      <View
+        style={{ gap: S.sm, alignItems: 'center' }}
+        accessible
+        accessibilityLabel={`Today’s session: ${badges.map((b) => b.label).join(', ')}`}>
+        {short ? null : (
+          <Txt v="footnote" color={C.label2} weight="600">
+            Today’s session
+          </Txt>
+        )}
+        <View style={styles.badges}>
+          {badges.map((b) => (
+            <Badge key={b.key} label={b.label} color={b.color} solid={b.solid} />
+          ))}
+        </View>
       </View>
 
-      <PickedCard selected={selected} />
+      <View style={{ alignItems: 'center', gap: S.xs }}>
+        <Txt v="title2" align="center">
+          How do you feel?
+        </Txt>
+        <Txt v="subhead" color={C.label2} align="center">
+          Right now, before this trade.
+        </Txt>
+      </View>
 
-      <Button kind="accent" icon={ListChecks} label="Next" onPress={onNext} disabled={!selected.length} />
-    </Screen>
+      <View style={{ alignItems: 'center', gap: S.sm }}>
+        <MoodShape valence={valence} size={size} />
+        <Txt v="title1" align="center" style={{ marginTop: S.xs }} numberOfLines={1}>
+          {VALENCE[valence - 1].label}
+        </Txt>
+      </View>
+
+      <View style={{ gap: S.lg }}>
+        <MoodSlider value={valence} onChange={onChange} />
+        {morning ? (
+          <View style={{ alignItems: 'center' }}>
+            <Pressy
+              accessibilityRole="button"
+              accessibilityLabel={`Same as this morning, ${VALENCE[morning - 1].label}`}
+              onPress={onSameAsMorning}
+              scaleTo={0.94}
+              style={styles.same}>
+              <Image source={MOOD_SHAPES[morning - 1]} contentFit="contain" style={{ width: 24, height: 24 }} />
+              <Txt v="subhead" weight="600" numberOfLines={1}>
+                Same as this morning
+              </Txt>
+            </Pressy>
+          </View>
+        ) : null}
+      </View>
+    </ScrollView>
   );
 }
+
+const styles = StyleSheet.create({
+  page: {
+    flexGrow: 1,
+    justifyContent: 'space-between',
+    gap: S.lg,
+    width: '100%',
+    maxWidth: 520,
+    alignSelf: 'center',
+    paddingHorizontal: S.xl,
+    paddingTop: S.sm,
+    paddingBottom: S.xl,
+  },
+  badges: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 6 },
+  same: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    height: 38,
+    paddingLeft: 8,
+    paddingRight: 16,
+    borderRadius: R.pill,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+  },
+});

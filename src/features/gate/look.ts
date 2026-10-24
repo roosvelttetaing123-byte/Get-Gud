@@ -1,58 +1,71 @@
 /**
- * Icons and pastels for the gate. Pastels follow meaning:
- * good to trade = mint, trade smaller = butter (low energy) or peach (high arousal),
- * don't trade = rose.
+ * Icons and colours for the gate. Colours come from SYS only.
  */
 import {
   Activity,
-  Angry,
+  Anchor,
   BatteryLow,
   BedDouble,
-  CandlestickChart,
-  CircleCheck,
+  Brain,
+  ChartCandlestick,
   Clock,
   CloudRain,
+  Coins,
   Crosshair,
   Droplets,
+  Flame,
   Hand,
+  HeartHandshake,
   Hourglass,
   Leaf,
   ListChecks,
   Newspaper,
-  NotebookPen,
   OctagonX,
   Percent,
   Rocket,
   ShieldCheck,
+  Snail,
   Swords,
   Target,
   Timer,
   TrendingDown,
   TrendingUp,
   TriangleAlert,
+  Zap,
   type LucideIcon,
 } from 'lucide-react-native';
 
-import type { PastelName } from '@/constants/theme';
+import { SYS } from '@/constants/theme';
+import type { GateCause } from '@/lib/derive';
 import type { Verdict } from '@/lib/store';
 
-import type { FactKind } from './logic';
-
-export const EMOTION_LOOK: Record<string, { icon: LucideIcon; pastel: PastelName }> = {
-  Calm: { icon: Leaf, pastel: 'mint' },
-  Focused: { icon: Crosshair, pastel: 'mint' },
-  Confident: { icon: ShieldCheck, pastel: 'mint' },
-  Bored: { icon: Hourglass, pastel: 'butter' },
-  Tired: { icon: BatteryLow, pastel: 'butter' },
-  Anxious: { icon: Activity, pastel: 'peach' },
-  Frustrated: { icon: Angry, pastel: 'peach' },
-  Euphoric: { icon: Rocket, pastel: 'peach' },
-  FOMO: { icon: TrendingUp, pastel: 'rose' },
-  Revenge: { icon: Swords, pastel: 'rose' },
-  Desperate: { icon: TriangleAlert, pastel: 'rose' },
+export const FEELING_ICON: Record<string, LucideIcon> = {
+  Calm: Leaf,
+  Focused: Crosshair,
+  Confident: ShieldCheck,
+  Patient: Anchor,
+  Bored: Hourglass,
+  Impatient: Zap,
+  Tired: BatteryLow,
+  Anxious: Activity,
+  FOMO: TrendingUp,
+  Frustrated: Flame,
+  Revenge: Swords,
+  Euphoric: Rocket,
+  Desperate: TriangleAlert,
 };
 
-export const emotionLook = (label: string) => EMOTION_LOOK[label] ?? { icon: Activity, pastel: 'sky' as PastelName };
+export const feelingIcon = (label: string): LucideIcon => FEELING_ICON[label] ?? Brain;
+
+export const ABOUT_ICON: Record<string, LucideIcon> = {
+  'After a loss': TrendingDown,
+  'After a win': TrendingUp,
+  News: Newspaper,
+  Tired: BedDouble,
+  Bored: Snail,
+  'Personal life': HeartHandshake,
+  'Money pressure': Coins,
+};
 
 /** Pick an icon for a checklist rule from its words. */
 export function ruleIcon(rule: string): LucideIcon {
@@ -67,17 +80,29 @@ export function ruleIcon(rule: string): LucideIcon {
   return ListChecks;
 }
 
-export const FACT_ICON: Record<FactKind, LucideIcon> = {
-  trades: CandlestickChart,
-  streak: TrendingDown,
-  loss: Timer,
-  sleep: BedDouble,
+/** Icon-square colours for rule rows, cycled like iOS Settings. */
+export const RULE_COLORS = [SYS.blue, SYS.orange, SYS.purple, SYS.pink, SYS.teal, SYS.indigo, SYS.green, SYS.yellow];
+
+export const CAUSE_ICON: Record<GateCause, LucideIcon> = {
+  limit: OctagonX,
+  hot: Flame,
+  red: Swords,
+  rules: ListChecks,
+  cooldown: Timer,
+  amber: Activity,
   mood: CloudRain,
-  open: NotebookPen,
+  sleep: BedDouble,
+  streak: TrendingDown,
+  last: ChartCandlestick,
+  unnamed: Brain,
+  clear: ShieldCheck,
 };
 
-export const VERDICT_ICON: Record<Verdict, LucideIcon> = {
-  clear: CircleCheck,
-  wait: Hand,
-  stop: OctagonX,
+export const VERDICT_LOOK: Record<
+  Verdict,
+  { word: string; colors: readonly [string, string, ...string[]]; icon: LucideIcon; caption: string }
+> = {
+  clear: { word: 'Clear.', colors: [SYS.green, SYS.mint], icon: ShieldCheck, caption: 'Good to trade' },
+  wait: { word: 'Wait.', colors: [SYS.orange, SYS.yellow], icon: Hourglass, caption: 'Not yet' },
+  stop: { word: 'Stop.', colors: [SYS.red, SYS.pink], icon: Hand, caption: 'Don’t trade this' },
 };
