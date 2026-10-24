@@ -111,6 +111,7 @@ def text_geom(text, gap=0.07, soften=0.018):
     if soften:
         # round off the sharp outer corners a touch so the bevel reads as cast, not cut
         geom = geom.buffer(-soften, quad_segs=10).buffer(soften, quad_segs=10)
+        geom = geom.buffer(soften * 1.6, quad_segs=10).buffer(-soften * 1.6, quad_segs=10)
     return center(geom, ref="ink")
 
 
@@ -190,9 +191,9 @@ def wave_glyph():
         a = a0 - sweep * i / 180
         r = r0 * math.exp(-k * (a0 - a))
         spiral.append((cx + r * math.cos(a), cy + r * math.sin(a)))
-    main = stroke(lead + spiral, 0.12)
+    main = stroke(lead + spiral, 0.145)
     swell = [(-0.62 + 1.24 * i / 80, -0.50 + 0.04 * math.sin(i / 80 * math.pi * 2.0)) for i in range(81)]
-    geom = unary_union([main, stroke(swell, 0.1)])
+    geom = unary_union([main, stroke(swell, 0.12)])
     geom = center(geom)
     minx, miny, maxx, maxy = geom.bounds
     s = 1.0 / max(maxx - minx, maxy - miny)

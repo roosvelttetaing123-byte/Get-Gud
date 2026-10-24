@@ -40,15 +40,16 @@ MEDALS = [
 # name -> spec. size = output px; ss = supersampling factor; pad = fraction of the canvas left empty per side
 ASSETS = {}
 for m in MEDALS:
-    ASSETS[m] = dict(builder="medal", params={"name": m}, size=600, ss=2, pad=0.08, png=True)
+    ASSETS[m] = dict(builder="medal", params={"name": m}, size=600, ss=3 if m in ("medal-streak-100", "medal-urge-surfer") else 2, pad=0.08, png=True)
 ASSETS["urge-orb"] = dict(builder="orb", params={"glow": False}, size=800, ss=2, fit=False, budget=120)
 ASSETS["urge-orb-glow"] = dict(builder="orb", params={"glow": True}, size=800, ss=2, fit=False, budget=120)
 for i in range(1, 8):
-    ASSETS[f"mood-{i}"] = dict(builder="mood", params={"level": i}, size=600, ss=2, pad=0.08)
+    ASSETS[f"mood-{i}"] = dict(builder="mood", params={"level": i}, size=600, ss=2, pad={3: 0.1, 4: 0.12, 5: 0.1}.get(i, 0.08))
 ASSETS["ring-trophy"] = dict(builder="trophy", params={}, size=600, ss=2, pad=0.08)
 ASSETS["gate-shield"] = dict(builder="shield", params={}, size=600, ss=2, pad=0.08)
 # icon sources (post-processed into the icon files)
-ASSETS["icon-mark"] = dict(builder="gmark", params={}, size=1024, ss=2, pad=0.0, fit=False, icon=True)
+ASSETS["icon-full"] = dict(builder="gmark", params={"background": True}, size=1024, ss=2, fit=False, icon="full")
+ASSETS["icon-mark"] = dict(builder="gmark", params={"glassDisc": False}, size=1024, ss=2, pad=0.17, icon="mark")
 
 
 # ---------------------------------------------------------------------- server + browser
@@ -126,50 +127,32 @@ def save_webp(im, path, budget_kb=80, quality=90):
 
 
 # ---------------------------------------------------------------------- icons
-def icon_background(n=1024):
-    """Near-black to deep navy/indigo with a warm glow behind the mark."""
-    y, x = np.mgrid[0:n, 0:n].astype(np.float32) / (n - 1)
-    top = np.array([0.035, 0.035, 0.06])
-    bot = np.array([0.09, 0.09, 0.24])
-    t = np.clip(y * 0.9 + x * 0.15, 0, 1)[..., None]
-    bg = top * (1 - t) + bot * t
-    d = np.sqrt((x - 0.5) ** 2 + (y - 0.47) ** 2)
-    glow = np.exp(-(d / 0.30) ** 2)[..., None]
-    bg = bg + glow * np.array([0.20, 0.13, 0.03]) * 0.55
-    ind = np.exp(-(((x - 0.5) ** 2) / 0.25 + ((y - 1.05) ** 2) / 0.08))[..., None]
-    bg = bg + ind * np.array([0.10, 0.10, 0.30]) * 0.5
-    return np.clip(bg, 0, 1)
-
-
-def make_icons(mark):
-    """mark: RGBA 1024 render of the G mark (transparent)."""
+def make_icon_full(im):
+    """im: opaque RGBA render of the full icon (background is part of the 3D scene)."""
     n = 1024
-    m = np.asarray(mark, dtype=np.float32) / 255.0
-    a = m[..., 3:4]
-    bg = icon_background(n)
-    comp = m[..., :3] * a + bg * (1 - a)
-    rng = np.random.default_rng(3)
-    comp = np.clip(comp + (rng.random(comp.shape) - rng.random(comp.shape)) * (0.8 / 255), 0, 1)
-    icon = Image.fromarray((comp * 255 + 0.5).astype(np.uint8), "RGB")
+    icon = Image.new("RGB", (n, n), (0, 0, 0))
+    icon.paste(im, (0, 0), im)
     icon.save(os.path.join(IMAGES, "icon.png"), optimize=True)
     for size, path in [(180, os.path.join(PUBLIC, "apple-touch-icon.png")), (192, os.path.join(PUBLIC, "icon-192.png")),
                        (512, os.path.join(PUBLIC, "icon-512.png"))]:
         icon.resize((size, size), Image.LANCZOS).save(path, optimize=True)
     icon.resize((48, 48), Image.LANCZOS).convert("RGBA").save(os.path.join(IMAGES, "favicon.png"), optimize=True)
-    # splash: the mark alone on transparent
+    # Android adaptive background: flat brand navy (solid)
+    Image.new("RGB", (n, n), (10, 16, 32)).save(os.path.join(IMAGES, "android-icon-background.png"), optimize=True)
+
+
+def make_icon_mark(mark):
+    """mark: transparent RGBA render of the G alone, auto-fitted with padding."""
+    n = 1024
     mark.save(os.path.join(IMAGES, "splash-icon.png"), optimize=True)
-    # android adaptive: foreground mark inside the 66% safe zone
+    # Android adaptive foreground: keep the mark inside the 66% safe zone
     fg = Image.new("RGBA", (n, n), (0, 0, 0, 0))
-    small = mark.resize((int(n * 0.70), int(n * 0.70)), Image.LANCZOS)
+    small = mark.resize((int(n * 0.74), int(n * 0.74)), Image.LANCZOS)
     fg.paste(small, ((n - small.width) // 2, (n - small.height) // 2), small)
     fg.save(os.path.join(IMAGES, "android-icon-foreground.png"), optimize=True)
-    bgim = Image.fromarray((icon_background(n) * 255 + 0.5).astype(np.uint8), "RGB")
-    # "solid" background layer: flat brand navy
-    Image.new("RGB", (n, n), (10, 16, 32)).save(os.path.join(IMAGES, "android-icon-background.png"), optimize=True)
-    mono_a = np.asarray(fg)[..., 3]
-    mono = np.dstack([np.full_like(mono_a, 255)] * 3 + [mono_a])
+    a = np.asarray(fg)[..., 3]
+    mono = np.dstack([np.full_like(a, 255)] * 3 + [a])
     Image.fromarray(mono, "RGBA").save(os.path.join(IMAGES, "android-icon-monochrome.png"), optimize=True)
-    return icon
 
 
 # ---------------------------------------------------------------------- contact sheets
@@ -226,6 +209,9 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("names", nargs="*")
     ap.add_argument("--sheets-only", action="store_true")
+    ap.add_argument("--tone", default=None)
+    ap.add_argument("--override", default=None, help="JSON merged into params.override (experiments)")
+    ap.add_argument("--suffix", default="", help="write outputs as <name><suffix>.webp (experiments)")
     ap.add_argument("--debug-dir", default=None, help="also dump raw colour/mask passes here")
     args = ap.parse_args()
     if args.sheets_only:
@@ -263,9 +249,13 @@ def main():
             spec = ASSETS[n]
             t0 = time.time()
             rs = spec["size"] * spec.get("ss", 2)
-            res = page.evaluate("(s) => window.renderAsset(s)", {"builder": spec["builder"], "params": spec["params"], "renderSize": rs})
+            params = dict(spec["params"])
+            if args.override:
+                import json
+                params["override"] = json.loads(args.override)
+            res = page.evaluate("(s) => window.renderAsset(s)", {"builder": spec["builder"], "params": params, "renderSize": rs, "tone": args.tone})
             for l in logs:
-                if "error" in l.lower() or "warn" in l.lower():
+                if ("error" in l.lower() or "warn" in l.lower()) and "404" not in l:
                     print("   ", l)
             logs.clear()
             color, mask = decode(res["color"]), decode(res["mask"])
@@ -275,8 +265,20 @@ def main():
                 mask.save(os.path.join(args.debug_dir, n + "-mask.png"))
             im = finish(color, mask, spec)
             if spec.get("icon"):
-                make_icons(im)
-                print(f"{n:22s} icons written  {time.time() - t0:5.1f}s")
+                if args.suffix:
+                    os.makedirs(os.path.join(REVIEW, "variants"), exist_ok=True)
+                    im.save(os.path.join(REVIEW, "variants", n + args.suffix + ".png"))
+                    continue
+                if spec["icon"] == "full":
+                    make_icon_full(im)
+                else:
+                    make_icon_mark(im)
+                print(f"{n:22s} icon files written  {time.time() - t0:5.1f}s")
+                continue
+            if args.suffix:
+                os.makedirs(os.path.join(REVIEW, "variants"), exist_ok=True)
+                im.save(os.path.join(REVIEW, "variants", n + args.suffix + ".png"))
+                print(f"{n}{args.suffix} variant written")
                 continue
             kb, q = save_webp(im, os.path.join(OUT3D, n + ".webp"), spec.get("budget", 80))
             extra = ""
@@ -286,6 +288,8 @@ def main():
             print(f"{n:22s} webp {kb:5.1f} KB (q{q}){extra}  {time.time() - t0:5.1f}s")
         browser.close()
     srv.shutdown()
+    if args.suffix:
+        return
     sheets()
     print("contact sheets:", os.path.join(REVIEW, "contact-black.png"), os.path.join(REVIEW, "contact-1c1c1e.png"))
 

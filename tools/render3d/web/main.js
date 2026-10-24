@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { mergeVertices, toCreasedNormals } from 'three/addons/utils/BufferGeometryUtils.js';
+import { makeScenes } from './scenes2.js';
 
 const canvas = document.getElementById('c');
 const renderer = new THREE.WebGLRenderer({
@@ -13,12 +14,14 @@ renderer.setPixelRatio(1);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.AgXToneMapping;
 renderer.toneMappingExposure = 1.0;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFShadowMap;
 
 const SHAPES = await (await fetch('/build/shapes.json')).json();
 
 // ------------------------------------------------------------------ colour helpers
 const C = (hex) => new THREE.Color(hex);
-export const IOS = {
+const IOS = {
   green: '#30D158', orange: '#FF9230', red: '#FF4245', yellow: '#FFD600', mint: '#00DAC3',
   cyan: '#3CD3FE', blue: '#0091FF', indigo: '#6D7CFF', purple: '#DB34F2', pink: '#FF375F', gold: '#FFB800',
 };
@@ -26,8 +29,15 @@ const lerpColor = (a, b, t) => C(a).lerp(C(b), t);
 
 // ------------------------------------------------------------------ environment (IBL)
 // RoomEnvironment plus two soft boxes so every asset shares the iOS top-left key direction.
+const ENV_WALLS = 0.28;
 function buildEnvironment() {
   const room = new RoomEnvironment();
+  // darker studio: dim the bounce light on the walls so reflections have contrast and colours stay saturated
+  room.traverse((o) => {
+    if (o.isPointLight) o.intensity *= ENV_WALLS;
+    // the room's big front panel sits right behind the camera; tame it so flat glossy faces keep their colour
+    if (o.isMesh && o.material.emissiveIntensity === 43) o.material.emissiveIntensity = 10;
+  });
   const panel = (w, h, intensity, color, pos) => {
     const mat = new THREE.MeshBasicMaterial({ color: C(color).multiplyScalar(intensity), side: THREE.DoubleSide });
     const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat);
@@ -38,6 +48,7 @@ function buildEnvironment() {
   panel(9, 6, 9, '#fff6ea', [-7, 7, 8]);    // big warm key softbox, top left front
   panel(2.2, 12, 6, '#e8f0ff', [9, 1, -3]);  // cool strip, right/behind = rim
   panel(14, 1.6, 2.5, '#ffffff', [0, -7, 6]); // low bounce card in front
+  panel(6, 3, 3.0, '#ffffff', [3, 9, 6]);     // high front card: catches up-facing bevels without flooding flat faces
   const pmrem = new THREE.PMREMGenerator(renderer);
   const tex = pmrem.fromScene(room, 0.035).texture;
   pmrem.dispose();
@@ -46,8 +57,19 @@ function buildEnvironment() {
 const ENV = buildEnvironment();
 
 function addRig(scene, o = {}) {
-  const key = new THREE.DirectionalLight('#fff3e6', o.key ?? 2.6);
+  const key = new THREE.DirectionalLight('#fff3e6', o.key ?? 1.8);
   key.position.set(-4, 5.5, 5);
+  if (o.shadow !== false) {
+    key.castShadow = true;
+    key.shadow.mapSize.set(2048, 2048);
+    const r = o.shadowExtent ?? 1.6;
+    Object.assign(key.shadow.camera, { left: -r, right: r, top: r, bottom: -r, near: 0.5, far: 20 });
+    key.shadow.radius = o.shadowSoft ?? 5;
+    key.shadow.blurSamples = 16;
+    key.shadow.bias = -0.0004;
+    key.shadow.normalBias = 0.004;
+    key.shadow.intensity = o.shadowIntensity ?? 0.75;
+  }
   scene.add(key);
   const rim = new THREE.DirectionalLight('#dce8ff', o.rim ?? 3.0);
   rim.position.set(5, 2.5, -4);
@@ -199,6 +221,17 @@ function planarUV(g, radius) {
   g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
 }
 
+function fitUV(g) {
+  g.computeBoundingBox();
+  const b = g.boundingBox, pos = g.attributes.position;
+  const uv = new Float32Array(pos.count * 2);
+  for (let i = 0; i < pos.count; i++) {
+    uv[i * 2] = (pos.getX(i) - b.min.x) / (b.max.x - b.min.x);
+    uv[i * 2 + 1] = (pos.getY(i) - b.min.y) / (b.max.y - b.min.y);
+  }
+  g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+}
+
 function shapesFromPolys(polys, scale = 1, dx = 0, dy = 0) {
   return polys.map((p) => {
     const s = new THREE.Shape(p.outer.map(([x, y]) => new THREE.Vector2(x * scale + dx, y * scale + dy)));
@@ -222,6 +255,14 @@ function extrudeNamed(name, { scale = 1, depth = 0.05, bevel = 0.02, bevelSize, 
   });
   g.translate(0, 0, bevel);
   g = toCreasedNormals(g, THREE.MathUtils.degToRad(crease));
+  // caps stay perfectly flat (creasing would bleed tilted bevel normals across long cap triangles)
+  const cap = g.groups.find((q) => q.materialIndex === 0);
+  if (cap) {
+    const nor = g.attributes.normal, pos = g.attributes.position;
+    const zMid = (depth + 2 * bevel) / 2;
+    for (let i = cap.start; i < cap.start + cap.count; i++) nor.setXYZ(i, 0, 0, pos.getZ(i) > zMid ? 1 : -1);
+    nor.needsUpdate = true;
+  }
   return g;
 }
 
@@ -235,6 +276,12 @@ const METALS = {
   platinum: { color: '#D9DCE2', rough: 0.16 },
   graphite: { color: '#4A4E57', rough: 0.5 },
 };
+
+function glyphTint(kind, lift) {
+  const c = C(METALS[kind].color);
+  c.lerp(C('#ffffff'), lift);
+  return '#' + c.getHexString();
+}
 
 function metal(kind, o = {}) {
   const m = METALS[kind];
@@ -296,6 +343,7 @@ function medalBumpTexture(pts, zones, o = {}) {
     const z = zones[idx];
     if (z === 'side') return 0.5 + 0.5 * Math.cos(u * Math.PI * 2 * reeds);
     if (z === 'crown') {
+      if (o.flutes) return Math.pow(0.5 + 0.5 * Math.cos(u * Math.PI * 2 * o.flutes), 0.6);
       let h = 0.5 + 0.18 * (vnoise1(py * 0.9) - 0.5) + 0.06 * Math.sin(py * 2.1);
       if (ticks) {
         const f = (u * ticks) % 1;
@@ -315,7 +363,7 @@ function medalScene(p) {
 
   const body = medalBodyGeometry({ lobes: p.lobes, lobeAmp: p.lobeAmp ?? 0.06 });
   const rimMat = metal(p.metal, {
-    bumpMap: medalBumpTexture(body.pts, body.zones, { reeds: p.lobes ? 0 : 150, ticks: p.ticks ?? 0 }),
+    bumpMap: medalBumpTexture(body.pts, body.zones, { reeds: p.lobes ? 0 : 150, ticks: p.ticks ?? 0, flutes: p.flutes ?? 0 }),
     bumpScale: 1.4, rough: p.rimRough, iridescence: p.rimIridescence ?? 0,
   });
   group.add(new THREE.Mesh(body.g, rimMat));
@@ -333,14 +381,16 @@ function medalScene(p) {
   planarUV(faceG, ri);
   const faceMat = new THREE.MeshPhysicalMaterial({
     color: '#ffffff', map: enamelColorMap(p.enamel[0], p.enamel[1], p.enamelOpts ?? {}),
-    roughness: p.faceRough ?? 0.32, metalness: p.faceMetal ?? 0.0,
+    roughness: p.faceRough ?? 0.42, metalness: p.faceMetal ?? 0.0, specularIntensity: p.faceSpec ?? 0.3,
     clearcoat: 1, clearcoatRoughness: 0.03,
-    bumpMap: guilloche(p.pattern ?? 'sunburst', p.patternOpts ?? {}), bumpScale: p.patternBump ?? 0.6,
-    sheen: p.sheen ?? 0.35, sheenColor: C(p.enamel[0]).lerp(C('#ffffff'), 0.5), sheenRoughness: 0.5,
+    bumpMap: guilloche(p.pattern ?? 'sunburst', p.patternOpts ?? {}), bumpScale: p.patternBump ?? 0.45,
+    sheen: p.sheen ?? 0.0, sheenColor: C(p.enamel[0]).lerp(C('#ffffff'), 0.5), sheenRoughness: 0.5,
     iridescence: p.faceIridescence ?? 0, iridescenceIOR: 1.5, iridescenceThicknessRange: [200, 500],
-    emissive: C(p.enamel[0]), emissiveIntensity: p.faceGlow ?? 0.04,
+    emissive: C(p.enamel[0]), emissiveIntensity: p.faceGlow ?? 0.03,
+    envMapIntensity: p.faceEnv ?? 0.45,
   });
   const face = new THREE.Mesh(faceG, faceMat);
+  face.receiveShadow = true;
   group.add(face);
   const faceTop = body.floor + 0.02 + (p.faceDome ?? 0.006);
 
@@ -357,9 +407,9 @@ function medalScene(p) {
     const glassMat = new THREE.MeshPhysicalMaterial({
       color: '#ffffff', metalness: 0, roughness: 0.02, transmission: 1, thickness: p.glass.thickness ?? 0.35,
       ior: 1.5, attenuationColor: C(p.glass.tint ?? '#ffffff'), attenuationDistance: p.glass.atten ?? 1.2,
-      clearcoat: 1, clearcoatRoughness: 0.0, specularIntensity: 1, envMapIntensity: 1.2,
+      clearcoat: 0, specularIntensity: 1, envMapIntensity: 1.0,
       iridescence: p.glass.iridescence ?? 0, iridescenceIOR: 1.3, iridescenceThicknessRange: [250, 600],
-      dispersion: p.glass.dispersion ?? 0.4,
+      dispersion: p.glass.dispersion ?? 0,
     });
     const dome = new THREE.Mesh(latheZ(gp, 256), glassMat);
     dome.renderOrder = 2;
@@ -367,17 +417,51 @@ function medalScene(p) {
   }
 
   // glyph(s)
-  const glyphMat = metal(p.glyphMetal ?? p.metal, { rough: p.glyphRough ?? 0.13 });
+  // glyphs: satin face with a polished, light-catching chamfer
+  const glyphMat = [
+    metal(p.glyphMetal ?? p.metal, { rough: p.glyphRough ?? 0.36, env: 1.7, color: glyphTint(p.glyphMetal ?? p.metal, p.glyphLift ?? 0.18) }),
+    metal(p.glyphMetal ?? p.metal, { rough: p.glyphEdgeRough ?? 0.1, env: 1.3 }),
+  ];
   const addGlyph = (name, o = {}) => {
     const b = bounds(SHAPES[name]);
     const s = o.scale ?? Math.min((o.maxW ?? 1.0) / b.w, (o.maxH ?? 0.78) / b.h);
-    const g = extrudeNamed(name, { scale: s, depth: o.depth ?? 0.045, bevel: o.bevel ?? 0.028, segs: 6, dx: o.dx ?? 0, dy: o.dy ?? 0 });
+    const g = extrudeNamed(name, { scale: s, depth: o.depth ?? 0.05, bevel: o.bevel ?? 0.03, segs: 8, dx: o.dx ?? 0, dy: o.dy ?? 0 });
     const m = new THREE.Mesh(g, o.mat ?? glyphMat);
+    m.castShadow = o.cast ?? true;
+    m.receiveShadow = true;
     m.position.z = o.z ?? glyphZ;
     group.add(m);
     return m;
   };
   if (p.glyph) addGlyph(p.glyph, p.glyphOpts ?? {});
+  if (p.seal) {
+    const n = p.seal.rays, pts = [];
+    const Rin = 1.0, Rout = p.seal.out ?? 1.16;
+    for (let i = 0; i < 720; i++) {
+      const a = (i / 720) * Math.PI * 2;
+      const k = Math.pow(0.5 + 0.5 * Math.cos(a * n + Math.PI / 2), p.seal.sharp ?? 1.4);
+      const r = Rin + (Rout - Rin) * k;
+      pts.push(new THREE.Vector2(r * Math.cos(a), r * Math.sin(a)));
+    }
+    let sg = new THREE.ExtrudeGeometry(new THREE.Shape(pts), { depth: 0.08, bevelEnabled: true, bevelThickness: 0.03, bevelSize: 0.025, bevelSegments: 6, curveSegments: 4 });
+    sg = toCreasedNormals(sg, THREE.MathUtils.degToRad(40));
+    sg.translate(0, 0, -0.1);
+    const seal = new THREE.Mesh(sg, [metal(p.metal, { rough: 0.3, env: 1.3 }), metal(p.metal, { rough: 0.1, env: 1.2 })]);
+    seal.receiveShadow = true;
+    group.add(seal);
+  }
+  if (p.beads) {
+    const bead = new THREE.SphereGeometry(0.024, 24, 16);
+    const inst = new THREE.InstancedMesh(bead, metal(p.metal, { rough: 0.08, env: 1.4 }), p.beads);
+    const mtx = new THREE.Matrix4();
+    for (let i = 0; i < p.beads; i++) {
+      const a = (i / p.beads) * Math.PI * 2;
+      mtx.makeScale(1, 1, 0.75).setPosition(0.875 * Math.cos(a), 0.875 * Math.sin(a), 0.145);
+      inst.setMatrixAt(i, mtx);
+    }
+    inst.castShadow = true;
+    group.add(inst);
+  }
   if (p.extra) p.extra({ group, addGlyph, faceTop, ri, glyphMat, faceMat });
 
   group.rotation.set(THREE.MathUtils.degToRad(p.rotX ?? -8), THREE.MathUtils.degToRad(p.rotY ?? 18), 0, 'YXZ');
@@ -393,16 +477,16 @@ const MEDALS = {
   'medal-streak-21': { metal: 'gold', enamel: ['#45E06D', '#16A845'], glyph: 'num_21', glyphOpts: { maxW: 1.06, maxH: 0.74 }, pattern: 'clous', patternOpts: { freq: 20 } },
   'medal-streak-66': { metal: 'rose', enamel: [IOS.purple, '#5A4BF0'], glyph: 'num_66', glyphOpts: { maxW: 1.08, maxH: 0.72 }, pattern: 'barley', patternOpts: { freq: 26, lobes: 10 }, enamelOpts: { spread: 0.75 } },
   'medal-streak-100': {
-    metal: 'platinum', enamel: ['#5FE0FF', '#0A8FD8'], glyph: 'num_100', glyphOpts: { maxW: 1.14, maxH: 0.62 },
-    pattern: 'rings', patternOpts: { freq: 30 }, ticks: 60,
-    glass: { tint: '#9BE9FF', height: 0.11, thickness: 0.4, atten: 1.4, iridescence: 0.35 },
+    metal: 'platinum', enamel: ['#3CD3FE', '#0560B0'], glyph: 'num_100', glyphOpts: { maxW: 1.06, maxH: 0.56, depth: 0.018, bevel: 0.02 },
+    pattern: 'rings', patternOpts: { freq: 30 }, patternBump: 0.35, flutes: 96,
+    glass: { tint: '#B5EEFF', height: 0.115, thickness: 0.18, atten: 2.5, iridescence: 0.2 },
   },
-  'medal-walked-away': { metal: 'gold', enamel: ['#2BE6C4', '#0BA77F'], pattern: 'sunburst', patternOpts: { rays: 64, cy: -0.05 }, lobes: 16, lobeAmp: 0.07, door: true },
-  'medal-perfect-day': { metal: 'gold', enamel: ['#24262C', '#0D0E11'], pattern: 'rings', patternOpts: { freq: 40 }, sheen: 0.1, faceRough: 0.4, rings: true },
+  'medal-walked-away': { metal: 'gold', enamel: ['#2BE6C4', '#0BA77F'], pattern: 'sunburst', patternOpts: { rays: 64, cy: -0.05 }, door: true, seal: { rays: 36, out: 1.13, sharp: 1.0 } },
+  'medal-perfect-day': { metal: 'gold', enamel: ['#202228', '#0B0C0F'], pattern: 'clous', patternOpts: { freq: 26 }, patternBump: 0.3, faceRough: 0.5, rings: true },
   'medal-urge-surfer': {
-    metal: 'silver', enamel: [IOS.cyan, IOS.indigo], glyph: 'wave', glyphOpts: { maxW: 0.98, maxH: 0.9 },
-    pattern: 'waves', patternOpts: { freq: 36 }, enamelOpts: { spread: 0.8 },
-    glass: { tint: '#C8D4FF', height: 0.1, thickness: 0.35, atten: 1.6, iridescence: 0.25 },
+    metal: 'silver', enamel: ['#3CD3FE', '#5A52F0'], glyph: 'wave', glyphOpts: { maxW: 0.92, maxH: 0.86, depth: 0.018, bevel: 0.02 },
+    pattern: 'waves', patternOpts: { freq: 36 }, patternBump: 0.35, enamelOpts: { spread: 0.8 },
+    glass: { tint: '#C8D4FF', height: 0.115, thickness: 0.18, atten: 2.5, iridescence: 0.2 },
   },
   'medal-locked': {
     metal: 'graphite', enamel: ['#2E3036', '#1E1F24'], glyph: 'qmark', glyphOpts: { maxH: 0.66 }, glyphMetal: 'graphite', glyphRough: 0.32,
@@ -415,9 +499,19 @@ function medalExtras(name, p) {
     p.extra = ({ group, addGlyph, faceTop }) => {
       const S = 0.86; // door group scale; shapes share one coordinate frame
       const z = faceTop;
-      const light = new THREE.MeshPhysicalMaterial({ color: '#FFF6DA', emissive: C('#FFE7A8'), emissiveIntensity: 2.2, roughness: 0.4, clearcoat: 1 });
+      const lightTex = canvasTexture(256, 256, (u, v) => {
+        // planar UVs of the door shape (shape units, centred): bright warm core low in the doorway
+        const d = Math.hypot((u - 0.5) * 1.6, (v - 0.32) * 1.0);
+        const k = Math.exp(-d * d * 3.2);
+        const a = C('#FFB800'), b = C('#FFF8E6');
+        a.convertLinearToSRGB(); b.convertLinearToSRGB();
+        const c = a.lerp(b, Math.min(1, k * 1.2));
+        return [c.r * 255, c.g * 255, c.b * 255];
+      }, { srgb: true });
+      const light = new THREE.MeshPhysicalMaterial({ color: '#000000', emissive: C('#ffffff'), emissiveMap: lightTex, emissiveIntensity: 1.6, roughness: 0.3, clearcoat: 1 });
       const frame = addGlyph('door_frame', { scale: S, depth: 0.05, bevel: 0.026, z });
-      const lightM = addGlyph('door_light', { scale: S, depth: 0.004, bevel: 0.004, z: z - 0.002, mat: light });
+      const lightM = addGlyph('door_light', { scale: S, depth: 0.004, bevel: 0.004, z: z - 0.002, mat: light, cast: false });
+      fitUV(lightM.geometry);
       const door = addGlyph('door_door', { scale: S, depth: 0.03, bevel: 0.02, z: z + 0.012 });
       const knob = addGlyph('door_knob', { scale: S, depth: 0.03, bevel: 0.02, z: z + 0.04 });
       // two small four-point sparkles
@@ -443,16 +537,18 @@ function medalExtras(name, p) {
   }
   if (p.rings) {
     p.extra = ({ group, faceTop }) => {
-      const cols = [IOS.orange, IOS.cyan, IOS.green];
+      const cols = ['#FF7A12', '#12B4F2', '#22C24C'];
+      const glow = [IOS.orange, IOS.cyan, IOS.green];
       const radii = [0.58, 0.43, 0.28];
       cols.forEach((c, i) => {
         const tube = 0.052;
         const g = new THREE.TorusGeometry(radii[i], tube, 48, 256);
         const m = new THREE.MeshPhysicalMaterial({
-          color: C(c), roughness: 0.22, metalness: 0.0, clearcoat: 1, clearcoatRoughness: 0.04,
-          sheen: 0.6, sheenColor: C(c).lerp(C('#ffffff'), 0.6), emissive: C(c), emissiveIntensity: 0.12,
+          color: C(c), roughness: 0.3, metalness: 0.0, specularIntensity: 0.3, clearcoat: 0.7, clearcoatRoughness: 0.05,
+          emissive: C(glow[i]), emissiveIntensity: 0.2, envMapIntensity: 0.55,
         });
         const mesh = new THREE.Mesh(g, m);
+        mesh.castShadow = true;
         mesh.position.z = faceTop + tube * 0.75;
         group.add(mesh);
       });
@@ -462,8 +558,14 @@ function medalExtras(name, p) {
 }
 
 // ------------------------------------------------------------------ registry + render entry
+const S2 = makeScenes({ C, IOS, addRig, metal, extrudeNamed, latheZ, filletPath, canvasTexture, guilloche, SHAPES, bounds, planarUV, enamelColorMap });
 const BUILDERS = {
-  medal: (params) => medalScene(medalExtras(params.name, { ...MEDALS[params.name] })),
+  medal: (params) => medalScene(medalExtras(params.name, { ...MEDALS[params.name], ...(params.override ?? {}) })),
+  orb: (p) => S2.orb({ ...p, ...(p.override ?? {}) }),
+  mood: (p) => S2.mood({ ...p, ...(p.override ?? {}) }),
+  trophy: (p) => S2.trophy({ ...p, ...(p.override ?? {}) }),
+  shield: (p) => S2.shield({ ...p, ...(p.override ?? {}) }),
+  gmark: (p) => S2.gmark({ ...p, ...(p.override ?? {}) }),
 };
 
 const MASK_CACHE = new Map();
@@ -476,7 +578,7 @@ window.renderAsset = async (spec) => {
   const size = spec.renderSize;
   renderer.setSize(size, size, false);
   const { scene, camera, tone, exposure } = BUILDERS[spec.builder](spec.params ?? {});
-  renderer.toneMapping = tone ?? THREE.AgXToneMapping;
+  renderer.toneMapping = tone ?? THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = exposure ?? spec.exposure ?? 1.0;
   if (spec.tone === 'aces') renderer.toneMapping = THREE.ACESFilmicToneMapping;
   if (spec.tone === 'agx') renderer.toneMapping = THREE.AgXToneMapping;
