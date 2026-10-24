@@ -1,15 +1,20 @@
-import { LinearGradient } from 'expo-linear-gradient';
-import { Check, RotateCcw, ShieldCheck, Timer } from 'lucide-react-native';
-import { useId, useState } from 'react';
+/**
+ * After the surf: re-rate the urge on the same slider, see the drop ("8 to 4"),
+ * then log how it went. Saved: a calm result card and Done.
+ */
+import { ArrowRight, Check, RotateCcw, ShieldCheck, Timer } from 'lucide-react-native';
+import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
 
-import { C, R, S } from '@/constants/theme';
+import { C, S, tint } from '@/constants/theme';
 import type { UrgeOutcome } from '@/lib/store';
-import { Body, Button, Display, Grid, Hero, Icon, IconBadge, Pill, Row, Screen, Section, Small, Surface, Tile } from '@/ui/legacy';
+import { Button, Card, IconWell, Medal, Num, Row, Screen, Txt, useSpringValue } from '@/ui';
 
-import { clock, spokenDuration } from './model';
-import { ChangeInline, IntensityControl, kindMeta, kindTint } from './visuals';
+import { IntensitySlider } from './IntensitySlider';
+import { kindMeta } from './kinds';
+import { SURFER_AT, changeLine, clock, intensityColor, intensityWord, spokenDuration } from './model';
+
+const SURFER_MEDAL = require('@/assets/3d/medal-urge-surfer.webp');
 
 export function ReviewView({
   kind,
@@ -17,6 +22,7 @@ export function ReviewView({
   before,
   seconds,
   saved,
+  after: savedAfter,
   onSave,
   onDone,
 }: {
@@ -26,151 +32,209 @@ export function ReviewView({
   before: number;
   seconds: number;
   saved?: UrgeOutcome;
-  onSave: (outcome: UrgeOutcome, after?: number) => void;
+  after?: number;
+  onSave: (outcome: UrgeOutcome, after: number) => void;
   onDone: () => void;
 }) {
-  const [after, setAfter] = useState<number | undefined>();
+  const [after, setAfter] = useState(before);
+
+  if (saved) {
+    return (
+      <Screen contentStyle={{ flexGrow: 1, justifyContent: 'center' }} gap={S.xl}>
+        {saved === 'resisted' ? (
+          <RodeItOut kind={kind} before={before} after={savedAfter} seconds={seconds} medal={ridden >= SURFER_AT} />
+        ) : (
+          <GaveIn kind={kind} before={before} after={savedAfter} seconds={seconds} />
+        )}
+        <Button title="Done" icon={Check} color={C.cyan} onPress={onDone} />
+      </Screen>
+    );
+  }
 
   return (
-    <Screen>
-      <Hero context={`You sat with it for ${clock(seconds)}`} title="How is it now?" />
+    <Screen title="How strong now?" caption={`You sat with it for ${clock(seconds)}`}>
+      <Card padding={S.xl} style={{ alignItems: 'center', gap: S.xl }}>
+        <IntensitySlider value={after} onChange={setAfter} ghost={before} label="How strong is it now?" />
+        <View style={{ alignItems: 'center', gap: S.lg }}>
+          <Compare before={before} after={after} />
+          <Txt v="subhead" color={C.label2} align="center">
+            {changeLine(before, after)}
+          </Txt>
+        </View>
+      </Card>
 
-      {saved === undefined ? (
-        <>
-          <IntensityControl title="Rate it again" value={after} onChange={setAfter} before={before} />
-
-          <Section title="How did it go?">
-            <Grid>
-              <Tile
-                title="I rode it out"
-                subtitle="Didn't act on it"
-                icon={ShieldCheck}
-                pastel="mint"
-                onPress={() => onSave('resisted', after)}
-              />
-              <Tile
-                title="I gave in"
-                subtitle="Log it. It's data."
-                icon={RotateCcw}
-                pastel="rose"
-                onPress={() => onSave('gave_in', after)}
-              />
-            </Grid>
-          </Section>
-        </>
-      ) : (
-        <>
-          {saved === 'resisted' ? (
-            <LinearGradient
-              colors={['rgba(79,214,156,0.32)', 'rgba(79,214,156,0.07)']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.win}>
-              <Glow />
-              <View style={styles.body}>
-                <Row style={{ justifyContent: 'space-between' }}>
-                  <IconBadge icon={ShieldCheck} size={56} color={C.onLight} bg={C.jade} />
-                  <View>
-                    <Pill label={`${ridden} ridden out`} tone="jade" />
-                  </View>
-                </Row>
-                <Display size={32} color={C.jade}>
-                  Rode it out.
-                </Display>
-                <Body>{"That's a rep. Every one makes the next easier."}</Body>
-              </View>
-              <Facts kind={kind} before={before} after={after} seconds={seconds} band="rgba(10,16,32,0.4)" />
-            </LinearGradient>
-          ) : (
-            <Surface style={styles.neutral}>
-              <View style={styles.body}>
-                <IconBadge icon={RotateCcw} size={56} color={C.mist} bg={C.raised} />
-                <Display size={32}>Logged.</Display>
-                <Body color={C.haze}>No judgement. Notice what made it hard, and start here sooner next time.</Body>
-              </View>
-              <Facts kind={kind} before={before} after={after} seconds={seconds} band="rgba(10,16,32,0.35)" />
-            </Surface>
-          )}
-          <Button label="Done" icon={Check} onPress={onDone} />
-        </>
-      )}
+      <View style={{ gap: S.md }}>
+        <Button title="I rode it out" icon={ShieldCheck} color={C.green} onPress={() => onSave('resisted', after)} />
+        <Button title="I gave in" kind="gray" onPress={() => onSave('gave_in', after)} />
+      </View>
     </Screen>
   );
 }
 
-/** Soft jade light in the top corner of the win card. */
-function Glow() {
-  const id = useId().replace(/:/g, '');
-  const d = 320;
+/** "8 to 4" as two big numbers with an arrow, each with its word. */
+function Compare({ before, after }: { before: number; after: number }) {
   return (
-    <View pointerEvents="none" style={styles.glow}>
-      <Svg width={d} height={d}>
-        <Defs>
-          <RadialGradient id={`w${id}`} cx="50%" cy="50%" r="50%">
-            <Stop offset="0" stopColor={C.jade} stopOpacity={0.38} />
-            <Stop offset="1" stopColor={C.jade} stopOpacity={0} />
-          </RadialGradient>
-        </Defs>
-        <Circle cx={d / 2} cy={d / 2} r={d / 2} fill={`url(#w${id})`} />
-      </Svg>
+    <View
+      accessible
+      accessibilityLabel={`Strength ${before} before, ${after} now`}
+      style={{ flexDirection: 'row', alignItems: 'flex-start', gap: S.lg }}>
+      <Level n={before} caption="Before" />
+      <View style={{ height: 72, justifyContent: 'center' }}>
+        <ArrowRight size={30} color={C.label3} strokeWidth={2.4} />
+      </View>
+      <Level n={after} caption="Now" />
     </View>
   );
 }
 
-/** Dark band of three small facts: the kind, the change in strength, the time. */
-function Facts({
+function Level({ n, caption }: { n: number; caption: string }) {
+  return (
+    <View style={{ alignItems: 'center', minWidth: 96 }}>
+      <Num size={64} color={intensityColor(n)}>
+        {n}
+      </Num>
+      <Txt v="subhead" weight="600">
+        {intensityWord(n)}
+      </Txt>
+      <Txt v="caption1" color={C.label3}>
+        {caption}
+      </Txt>
+    </View>
+  );
+}
+
+/* ---------- results ---------- */
+
+function RodeItOut({
   kind,
   before,
   after,
   seconds,
-  band,
+  medal,
 }: {
   kind: string;
   before: number;
   after?: number;
   seconds: number;
-  band: string;
+  medal: boolean;
 }) {
   return (
-    <View style={[styles.facts, { backgroundColor: band }]}>
+    <Card padding={0} style={[styles.result, { backgroundColor: tint(C.green, 0.13), borderColor: tint(C.green, 0.32) }]}>
+      <View style={styles.hero}>
+        {medal ? <Medal image={SURFER_MEDAL} size={150} label="Urge surfer medal" /> : <BouncyCheck />}
+        <View style={{ gap: S.xs, alignItems: 'center' }}>
+          <Txt v="title1" color={C.green} align="center">
+            Rode it out.
+          </Txt>
+          <Txt v="body" color={C.label2} align="center">
+            {medal ? "You're an urge surfer now." : "That's a rep. The next one gets easier."}
+          </Txt>
+        </View>
+      </View>
+      <Facts kind={kind} before={before} after={after} seconds={seconds} />
+    </Card>
+  );
+}
+
+function GaveIn({ kind, before, after, seconds }: { kind: string; before: number; after?: number; seconds: number }) {
+  return (
+    <Card padding={0} style={[styles.result, { borderColor: 'transparent' }]}>
+      <View style={styles.hero}>
+        <IconWell icon={RotateCcw} color={C.gray} size={72} />
+        <View style={{ gap: S.xs, alignItems: 'center' }}>
+          <Txt v="title1" align="center">
+            Logged.
+          </Txt>
+          <Txt v="body" color={C.label2} align="center">
+            {'No judgement.\nStart here sooner next time.'}
+          </Txt>
+        </View>
+      </View>
+      <Facts kind={kind} before={before} after={after} seconds={seconds} />
+    </Card>
+  );
+}
+
+/** A green check that springs in with a bounce. */
+function BouncyCheck() {
+  const s = useSpringValue(1, 'bouncy', 0);
+  const ring = useSpringValue(1, 'smooth', 0);
+  return (
+    <View style={styles.checkWrap}>
+      <View style={[styles.checkHalo, { opacity: 0.9 * (1 - ring), transform: [{ scale: 0.7 + ring * 0.6 }] }]} />
+      <View style={[styles.checkDisc, { transform: [{ scale: Math.max(0, s) }] }]}>
+        <Check size={46} color="#FFFFFF" strokeWidth={3.2} />
+      </View>
+    </View>
+  );
+}
+
+/** Three small facts: the kind, the change in strength, the time. */
+function Facts({ kind, before, after, seconds }: { kind: string; before: number; after?: number; seconds: number }) {
+  const m = kindMeta(kind);
+  const M = m.icon;
+  return (
+    <View style={styles.facts}>
       <View style={styles.fact}>
-        <Icon icon={kindMeta(kind).icon} size={20} color={kindTint(kind)} />
-        <Small numberOfLines={1}>{kind}</Small>
+        <M size={20} color={m.color} strokeWidth={2.2} />
+        <Txt v="caption1" color={C.label2} numberOfLines={1}>
+          {kind}
+        </Txt>
       </View>
       <View style={styles.sep} />
-      <View
-        style={styles.fact}
-        accessible
-        accessibilityLabel={after === undefined ? `Started at ${before}` : `Strength ${before} to ${after}`}>
-        <ChangeInline before={before} after={after} size={20} />
-        <Small>Strength</Small>
+      <View style={styles.fact} accessible accessibilityLabel={`Strength ${before} to ${after ?? before}`}>
+        <Row gap={4}>
+          <Num size={20} weight="700" color={intensityColor(before)}>
+            {before}
+          </Num>
+          <ArrowRight size={14} color={C.label3} strokeWidth={2.6} />
+          <Num size={20} weight="700" color={intensityColor(after ?? before)}>
+            {after ?? before}
+          </Num>
+        </Row>
+        <Txt v="caption1" color={C.label2}>
+          Strength
+        </Txt>
       </View>
       <View style={styles.sep} />
       <View style={styles.fact} accessible accessibilityLabel={`Sat with it for ${spokenDuration(seconds)}`}>
-        <Row gap={6}>
-          <Icon icon={Timer} size={16} color={C.haze} />
-          <Display size={20} style={styles.tab}>
+        <Row gap={4}>
+          <Timer size={15} color={C.label2} strokeWidth={2.4} />
+          <Num size={20} weight="700">
             {clock(seconds)}
-          </Display>
+          </Num>
         </Row>
-        <Small>Sat with it</Small>
+        <Txt v="caption1" color={C.label2}>
+          Sat with it
+        </Txt>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  win: {
-    borderRadius: R.hero,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(79,214,156,0.4)',
+  result: { gap: 0, borderWidth: 1 },
+  hero: { alignItems: 'center', gap: S.lg, paddingTop: S.xxxl, paddingBottom: S.xxl, paddingHorizontal: S.xl },
+  checkWrap: { width: 120, height: 120, alignItems: 'center', justifyContent: 'center' },
+  checkHalo: { position: 'absolute', width: 120, height: 120, borderRadius: 60, backgroundColor: tint(C.green, 0.35) },
+  checkDisc: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: C.green,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: C.green,
+    shadowOpacity: 0.55,
+    shadowRadius: 26,
+    shadowOffset: { width: 0, height: 0 },
   },
-  glow: { position: 'absolute', top: -150, right: -110 },
-  neutral: { padding: 0, gap: 0, borderRadius: R.hero, overflow: 'hidden' },
-  body: { padding: S.xl, gap: S.md },
-  facts: { flexDirection: 'row', paddingVertical: S.lg, paddingHorizontal: S.md },
-  fact: { flex: 1, alignItems: 'center', justifyContent: 'flex-end', gap: 4, minHeight: 48 },
-  sep: { width: 1, backgroundColor: 'rgba(255,255,255,0.12)' },
-  tab: { fontVariant: ['tabular-nums'] },
+  facts: {
+    flexDirection: 'row',
+    paddingVertical: S.lg,
+    paddingHorizontal: S.sm,
+    backgroundColor: 'rgba(0,0,0,0.22)',
+  },
+  fact: { flex: 1, alignItems: 'center', justifyContent: 'flex-end', gap: 4, minWidth: 0, paddingHorizontal: 4 },
+  sep: { width: StyleSheet.hairlineWidth, backgroundColor: C.separator },
 });

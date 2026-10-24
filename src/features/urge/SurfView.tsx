@@ -1,139 +1,189 @@
-import { Image } from 'expo-image';
+/**
+ * The surf: full screen, pure black, a breathing bloom in the middle.
+ * Shown in a Modal so it covers the tab bar; fades in from Pick and out to the re-rate.
+ */
 import { LinearGradient } from 'expo-linear-gradient';
-import { Check, Plus } from 'lucide-react-native';
-import { useState } from 'react';
-import { StyleSheet, View, type LayoutChangeEvent } from 'react-native';
+import { useId } from 'react';
+import { Modal, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Svg, { Defs, Ellipse, RadialGradient, Stop } from 'react-native-svg';
 
-import { C, F, Pastel, R, S } from '@/constants/theme';
+import { C, S } from '@/constants/theme';
 import { haptic } from '@/lib/haptics';
-import { Art, Body, Button, Display, Pill, ProgressRing, Screen } from '@/ui/legacy';
+import { Button, Num, Row, Txt, useReduceMotion } from '@/ui';
 
-import { BreathingOrb, useBreath } from './BreathingCircle';
-import { useA11yFlag, useCountdown } from './hooks';
-import { LINE_MS, clock, groundingLines, spokenDuration, type Session } from './model';
-import { kindMeta } from './visuals';
+import { Bloom } from './Bloom';
+import { CrossFade } from './CrossFade';
+import { useBreath, useCountdown } from './hooks';
+import { kindMeta } from './kinds';
+import { LINE_MS, clock, groundingLines, spokenDuration, urgeContext, type Session } from './model';
 
-const MAX_RING = 280;
-const MIN_RING = 180;
-
-export function SurfView({
+export function SurfModal({
+  visible,
   session,
   onExtend,
   onEnd,
 }: {
-  session: Session;
+  visible: boolean;
+  session?: Session;
   onExtend: () => void;
   /** seconds actually sat with it */
   onEnd: (seconds: number) => void;
 }) {
-  const { kind, startAt, endAt, seed } = session;
-  const reduceMotion = useA11yFlag('reduceMotionChanged');
-  const [area, setArea] = useState<{ w: number; h: number } | null>(null);
-  const breath = useBreath(startAt);
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      statusBarTranslucent
+      onRequestClose={() => session && onEnd(Math.round((Math.min(Date.now(), session.endAt) - session.startAt) / 1000))}>
+      {session ? (
+        <SurfBody key={session.startAt} session={session} active={visible} onExtend={onExtend} onEnd={onEnd} />
+      ) : null}
+    </Modal>
+  );
+}
 
-  const { remaining, now } = useCountdown(endAt, () => {
+function SurfBody({
+  session,
+  active,
+  onExtend,
+  onEnd,
+}: {
+  session: Session;
+  active: boolean;
+  onExtend: () => void;
+  onEnd: (seconds: number) => void;
+}) {
+  const { kind, startAt, endAt, seed } = session;
+  const insets = useSafeAreaInsets();
+  const { width, height } = useWindowDimensions();
+  const reduce = useReduceMotion();
+  const breath = useBreath(startAt, active);
+  const { remaining, now } = useCountdown(endAt, active, () => {
     haptic.success();
     onEnd(Math.round((endAt - startAt) / 1000));
   });
 
   const secsLeft = Math.ceil(remaining / 1000);
+  const total = Math.max(1, endAt - startAt);
+  const progress = Math.min(1, Math.max(0, (now - startAt) / total));
   const lines = groundingLines(kind, seed);
   const line = lines[Math.floor(Math.max(0, now - startAt) / LINE_MS) % lines.length];
-  const left = remaining / Math.max(1, endAt - startAt);
-
-  const size = area ? Math.max(MIN_RING, Math.min(MAX_RING, area.w, area.h)) : 0;
-
-  const onLayout = (e: LayoutChangeEvent) => {
-    const { width, height } = e.nativeEvent.layout;
-    setArea((a) => (a && a.w === width && a.h === height ? a : { w: width, h: height }));
-  };
+  const bloom = Math.round(Math.min(width - 56, height * 0.44, 380));
+  const m = kindMeta(kind);
+  const M = m.icon;
 
   return (
-    <View style={styles.root}>
-      <Image source={Art.calm} style={[StyleSheet.absoluteFill, styles.art]} contentFit="cover" transition={0} />
-      <LinearGradient
-        colors={['rgba(10,16,32,0.15)', 'rgba(10,16,32,0.55)', C.ink]}
-        locations={[0, 0.5, 0.92]}
-        style={StyleSheet.absoluteFill}
-      />
+    <View style={[styles.root, { paddingTop: insets.top + S.lg, paddingBottom: insets.bottom + S.lg }]}>
+      <Backdrop width={width} height={height} />
 
-      <Screen scroll={false} style={styles.screen}>
-        <View style={styles.top}>
-          <View>
-            <Pill icon={kindMeta(kind).icon} label={kind} />
+      <Row gap={6} style={{ justifyContent: 'center' }}>
+        <M size={15} color={m.color} strokeWidth={2.4} />
+        <Txt v="subhead" weight="600" color={C.label2}>
+          {urgeContext(kind)}
+        </Txt>
+      </Row>
+
+      <View style={styles.middle}>
+        <Bloom fullness={breath.fullness} size={bloom} reduce={reduce} />
+      </View>
+
+      <View style={styles.words}>
+        <CrossFade
+          value={breath.word}
+          duration={900}
+          style={{ alignSelf: 'stretch' }}
+          render={(w) => (
+            <Txt v="title2" weight="600" align="center">
+              {w}
+            </Txt>
+          )}
+        />
+        <CrossFade
+          value={line}
+          duration={1400}
+          lift={4}
+          style={styles.line}
+          render={(l) => (
+            <Txt v="callout" color={C.label2} align="center" numberOfLines={2}>
+              {l}
+            </Txt>
+          )}
+        />
+      </View>
+
+      <View style={styles.bottom}>
+        <View style={styles.track}>
+          <View style={[styles.progress, { width: `${progress * 100}%` }]}>
+            <LinearGradient
+              colors={[C.indigo, C.cyan]}
+              start={{ x: 0, y: 0.5 }}
+              end={{ x: 1, y: 0.5 }}
+              style={StyleSheet.absoluteFill}
+            />
           </View>
         </View>
-
-        <View style={styles.middle} onLayout={onLayout}>
-          {size ? (
-            <View style={{ width: size, height: size }}>
-              {reduceMotion !== null ? (
-                <View style={styles.fill}>
-                  <BreathingOrb fullness={breath.fullness} size={size} reduceMotion={reduceMotion} />
-                </View>
-              ) : null}
-              <View style={styles.fill}>
-                <ProgressRing
-                  value={left}
-                  size={size}
-                  stroke={6}
-                  colors={[Pastel.mint[1], C.accent]}
-                  track="rgba(242,245,251,0.1)">
-                  <View
-                    accessible
-                    accessibilityRole="timer"
-                    accessibilityLabel={`${spokenDuration(secsLeft)} left. ${breath.word}.`}
-                    style={styles.readout}>
-                    <Display size={56} style={styles.time}>
-                      {clock(secsLeft, true)}
-                    </Display>
-                    <Display size={19} weight="semi" color="rgba(242,245,251,0.86)">
-                      {breath.word}
-                    </Display>
-                  </View>
-                </ProgressRing>
-              </View>
-            </View>
-          ) : null}
+        <View style={styles.controls}>
+          <View style={styles.side}>
+            <Button title="+1 min" kind="gray" size="small" full={false} onPress={onExtend} />
+          </View>
+          <View accessible accessibilityRole="timer" accessibilityLabel={`${spokenDuration(secsLeft)} left`} style={styles.time}>
+            <Num size={20} weight="600" color={C.label}>
+              {clock(secsLeft)}
+            </Num>
+            <Txt v="caption2" color={C.label3}>
+              left
+            </Txt>
+          </View>
+          <View style={[styles.side, { alignItems: 'flex-end' }]}>
+            <Button
+              title="End"
+              kind="plain"
+              size="small"
+              color={C.label}
+              full={false}
+              onPress={() => onEnd(Math.round((Math.min(Date.now(), endAt) - startAt) / 1000))}
+            />
+          </View>
         </View>
+      </View>
+    </View>
+  );
+}
 
-        <View style={styles.lineCard}>
-          <Body style={styles.line}>{line}</Body>
-        </View>
-
-        <View style={styles.actions}>
-          <Button
-            kind="secondary"
-            icon={Check}
-            label="It's passed"
-            onPress={() => onEnd(Math.round((Math.min(Date.now(), endAt) - startAt) / 1000))}
-          />
-          <Button kind="ghost" icon={Plus} label="Add 5 minutes" onPress={onExtend} />
-        </View>
-      </Screen>
+/** Pure black with a faint cyan light where the bloom sits and indigo pooling below. */
+function Backdrop({ width, height }: { width: number; height: number }) {
+  const id = useId().replace(/[^a-zA-Z0-9]/g, '');
+  return (
+    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+      <Svg width={width} height={height}>
+        <Defs>
+          <RadialGradient id={`c${id}`} cx="50%" cy="50%" r="50%">
+            <Stop offset="0" stopColor={C.cyan} stopOpacity={0.1} />
+            <Stop offset="1" stopColor={C.cyan} stopOpacity={0} />
+          </RadialGradient>
+          <RadialGradient id={`i${id}`} cx="50%" cy="50%" r="50%">
+            <Stop offset="0" stopColor={C.indigo} stopOpacity={0.14} />
+            <Stop offset="1" stopColor={C.indigo} stopOpacity={0} />
+          </RadialGradient>
+        </Defs>
+        <Ellipse cx={width / 2} cy={height * 0.42} rx={width * 0.95} ry={height * 0.42} fill={`url(#c${id})`} />
+        <Ellipse cx={width / 2} cy={height * 1.02} rx={width * 1.1} ry={height * 0.4} fill={`url(#i${id})`} />
+      </Svg>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: C.ink },
-  art: { opacity: 0.38 },
-  screen: { backgroundColor: 'transparent' },
-  top: { alignItems: 'center' },
-  middle: { flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: MIN_RING },
-  fill: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, alignItems: 'center', justifyContent: 'center' },
-  readout: { alignItems: 'center', gap: 2 },
-  time: { fontVariant: ['tabular-nums'], textShadowColor: 'rgba(10,16,32,0.35)', textShadowRadius: 12 },
-  lineCard: {
-    minHeight: 104,
-    justifyContent: 'center',
-    paddingHorizontal: S.xl,
-    paddingVertical: S.lg,
-    borderRadius: R.surface,
-    backgroundColor: 'rgba(19,27,48,0.55)',
-    borderWidth: 1,
-    borderColor: 'rgba(242,245,251,0.1)',
-  },
-  line: { textAlign: 'center', fontFamily: F.semi, color: 'rgba(242,245,251,0.9)' },
-  actions: { gap: S.xs },
+  root: { flex: 1, backgroundColor: C.bg, paddingHorizontal: S.margin },
+  middle: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  words: { alignItems: 'center', gap: S.md, paddingHorizontal: S.lg, marginBottom: S.xxxl },
+  line: { alignSelf: 'stretch', minHeight: 42, maxWidth: 340, marginHorizontal: 'auto' },
+  bottom: { gap: S.lg, width: '100%', maxWidth: 460, alignSelf: 'center' },
+  track: { height: 3, borderRadius: 2, backgroundColor: 'rgba(120,120,128,0.24)', overflow: 'hidden', marginHorizontal: S.xs },
+  progress: { height: 3, borderRadius: 2, overflow: 'hidden' },
+  controls: { flexDirection: 'row', alignItems: 'center' },
+  side: { flex: 1 },
+  time: { alignItems: 'center' },
 });

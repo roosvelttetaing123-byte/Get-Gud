@@ -1,35 +1,38 @@
 /**
- * Urge tab, the SOS button. Name the urge, sit with it through paced breathing
- * until it passes, then log how it went.
- * Flow: pick -> surf -> review -> pick.
+ * Urge tab, the SOS button. Name the urge, rate it, ride it out with paced
+ * breathing (urge surfing), then re-rate and log how it went.
+ * Flow: pick -> surf (full-screen modal) -> review (re-rate, then result) -> pick.
  */
 import { router, useLocalSearchParams } from 'expo-router';
 import { useRef, useState } from 'react';
 
 import { PickView } from '@/features/urge/PickView';
 import { ReviewView } from '@/features/urge/ReviewView';
-import { SurfView } from '@/features/urge/SurfView';
-import { matchKind, type Session } from '@/features/urge/model';
+import { SurfModal } from '@/features/urge/SurfView';
+import { durationOptions, matchKind, type Session } from '@/features/urge/model';
 import { actions, useStore, type UrgeOutcome } from '@/lib/store';
 
-const EXTEND_MS = 5 * 60_000;
+const EXTEND_MS = 60_000;
 
 type Flow =
   | { step: 'pick' }
   | { step: 'surf'; session: Session }
-  | { step: 'review'; session: Session; seconds: number; saved?: UrgeOutcome };
+  | { step: 'review'; session: Session; seconds: number; saved?: UrgeOutcome; after?: number };
 
 export default function UrgeScreen() {
   const { urges, settings } = useStore();
-  const minutes = Math.max(1, Math.round(settings.urgeMinutes || 10));
+  const fallback = Math.max(1, Math.round(settings.urgeMinutes || 3));
+  const minuteOptions = durationOptions(settings.urgeMinutes);
 
   const [flow, setFlow] = useState<Flow>({ step: 'pick' });
   const [kind, setKind] = useState<string | undefined>();
   const [before, setBefore] = useState<number | undefined>();
+  const [chosenMinutes, setMinutes] = useState<number | undefined>();
+  const minutes = chosenMinutes ?? fallback;
   /** startAt of the last saved session, so a double tap can't log it twice. */
   const savedSession = useRef<number | null>(null);
 
-  // ?kind=Revenge%20trade presets the chip; re-applied whenever the param changes.
+  // ?kind=Revenge%20trade presets the card; re-applied whenever the param changes.
   const { kind: kindParam } = useLocalSearchParams<{ kind?: string }>();
   const preset = matchKind(kindParam);
   const [appliedPreset, setAppliedPreset] = useState<string | undefined>();
@@ -38,58 +41,66 @@ export default function UrgeScreen() {
     if (preset) setKind(preset);
   }
 
-  if (flow.step === 'surf') {
-    const { session } = flow;
-    return (
-      <SurfView
-        key="surf"
-        session={session}
-        onExtend={() => setFlow({ step: 'surf', session: { ...session, endAt: session.endAt + EXTEND_MS } })}
-        onEnd={(seconds) => setFlow({ step: 'review', session, seconds })}
-      />
-    );
-  }
+  const session = flow.step === 'pick' ? undefined : flow.session;
 
-  if (flow.step === 'review') {
-    const { session, seconds, saved } = flow;
-    return (
-      <ReviewView
-        key="review"
-        kind={session.kind}
-        ridden={urges.filter((u) => u.outcome === 'resisted').length}
-        before={session.before}
-        seconds={seconds}
-        saved={saved}
-        onSave={(outcome, after) => {
-          if (saved || savedSession.current === session.startAt) return;
-          savedSession.current = session.startAt;
-          actions.addUrge({ kind: session.kind, before: session.before, after, outcome, seconds });
-          setFlow({ ...flow, saved: outcome });
-        }}
-        onDone={() => {
-          setFlow({ step: 'pick' });
-          setKind(undefined);
-          setBefore(undefined);
-          router.setParams<'/urge'>({ kind: undefined });
-        }}
-      />
-    );
-  }
+  const reset = () => {
+    setFlow({ step: 'pick' });
+    setKind(undefined);
+    setBefore(undefined);
+    setMinutes(undefined);
+    router.setParams<'/urge'>({ kind: undefined });
+  };
 
   return (
-    <PickView
-      key="pick"
-      kind={kind}
-      before={before}
-      minutes={minutes}
-      urges={urges}
-      onKind={setKind}
-      onBefore={setBefore}
-      onStart={() => {
-        if (kind === undefined || before === undefined) return;
-        const now = Date.now();
-        setFlow({ step: 'surf', session: { kind, before, startAt: now, endAt: now + minutes * 60_000, seed: now } });
-      }}
-    />
+    <>
+      {flow.step === 'review' ? (
+        <ReviewView
+          key={`review-${flow.session.startAt}`}
+          kind={flow.session.kind}
+          ridden={urges.filter((u) => u.outcome === 'resisted').length}
+          before={flow.session.before}
+          seconds={flow.seconds}
+          saved={flow.saved}
+          after={flow.after}
+          onSave={(outcome, after) => {
+            const s = flow.session;
+            if (flow.saved || savedSession.current === s.startAt) return;
+            savedSession.current = s.startAt;
+            actions.addUrge({ kind: s.kind, before: s.before, after, outcome, seconds: flow.seconds });
+            setFlow({ ...flow, saved: outcome, after });
+          }}
+          onDone={reset}
+        />
+      ) : (
+        <PickView
+          kind={kind}
+          before={before}
+          minutes={minutes}
+          minuteOptions={minuteOptions}
+          urges={urges}
+          onKind={setKind}
+          onBefore={setBefore}
+          onMinutes={setMinutes}
+          onStart={() => {
+            if (kind === undefined || before === undefined) return;
+            const now = Date.now();
+            setFlow({ step: 'surf', session: { kind, before, startAt: now, endAt: now + minutes * 60_000, seed: now } });
+          }}
+        />
+      )}
+
+      <SurfModal
+        visible={flow.step === 'surf'}
+        session={session}
+        onExtend={() => {
+          if (flow.step !== 'surf') return;
+          setFlow({ step: 'surf', session: { ...flow.session, endAt: flow.session.endAt + EXTEND_MS } });
+        }}
+        onEnd={(seconds) => {
+          if (flow.step !== 'surf') return;
+          setFlow({ step: 'review', session: flow.session, seconds: Math.max(0, seconds) });
+        }}
+      />
+    </>
   );
 }
