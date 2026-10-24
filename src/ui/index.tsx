@@ -671,7 +671,8 @@ export function Stepper({
 
 /** iOS text field. Font is 17px so iOS never zooms. */
 export function Field(props: TextInputProps & { label?: string }) {
-  const { label, style, multiline, ...rest } = props;
+  const { label, style, multiline, onFocus, onBlur, ...rest } = props;
+  const [focused, setFocused] = useState(false);
   return (
     <View style={{ gap: 6 }}>
       {label ? (
@@ -685,7 +686,21 @@ export function Field(props: TextInputProps & { label?: string }) {
         keyboardAppearance="dark"
         multiline={multiline}
         {...rest}
-        style={[styles.field, multiline && { minHeight: 88, textAlignVertical: 'top', paddingTop: 12 }, style]}
+        onFocus={(e) => {
+          setFocused(true);
+          onFocus?.(e);
+        }}
+        onBlur={(e) => {
+          setFocused(false);
+          onBlur?.(e);
+        }}
+        style={[
+          styles.field,
+          multiline && { minHeight: 88, textAlignVertical: 'top', paddingTop: 12 },
+          { borderColor: focused ? tint(C.tint, 0.7) : 'transparent' },
+          Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : null,
+          style,
+        ]}
       />
     </View>
   );
@@ -846,6 +861,7 @@ const styles = StyleSheet.create({
   field: {
     backgroundColor: C.card2,
     borderRadius: 12,
+    borderWidth: 1.5,
     paddingHorizontal: 14,
     paddingVertical: 12,
     color: C.label,

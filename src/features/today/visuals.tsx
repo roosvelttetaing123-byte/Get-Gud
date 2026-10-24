@@ -1,3 +1,8 @@
+/**
+ * Small shared visuals for Today (and Settings): promise icons and colours, colour maths,
+ * and the mood shape images.
+ */
+import type { ImageSource } from 'expo-image';
 import {
   BedDouble,
   BookOpen,
@@ -5,11 +10,6 @@ import {
   Droplets,
   Dumbbell,
   Footprints,
-  Laugh,
-  Annoyed,
-  Frown,
-  Meh,
-  Smile,
   Moon,
   PhoneOff,
   Salad,
@@ -17,13 +17,8 @@ import {
   Target,
   type LucideIcon,
 } from 'lucide-react-native';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { C, F, PASTELS, Pastel, S, type PastelName } from '@/constants/theme';
-import { haptic } from '@/lib/haptics';
-import { ProgressRing, Small } from '@/ui/legacy';
-
-import { weekdayLetter } from './useToday';
+import { PASTELS, SYS, type PastelName } from '@/constants/theme';
 
 /** Pick an icon for a promise from its words. */
 export function promiseIcon(text: string): LucideIcon {
@@ -41,87 +36,45 @@ export function promiseIcon(text: string): LucideIcon {
   return Target;
 }
 
+/** iOS Settings style: each row gets its own colour square. */
+const PROMISE_COLORS = [SYS.orange, SYS.green, SYS.blue, SYS.indigo, SYS.pink, SYS.teal, SYS.purple, SYS.yellow] as const;
+export const promiseColor = (i: number): string => PROMISE_COLORS[i % PROMISE_COLORS.length];
+
+/** @deprecated v2 pastel pairs; kept for older Settings code. Prefer promiseColor. */
 export const pastelAt = (i: number): PastelName => PASTELS[i % PASTELS.length];
 
-/** Seven small rings, one per day, oldest first. */
-export function WeekRings({ days, todayKey }: { days: { key: string; date: Date; ratio: number }[]; todayKey: string }) {
-  return (
-    <View style={styles.week}>
-      {days.map((d) => {
-        const today = d.key === todayKey;
-        const full = d.ratio >= 1;
-        return (
-          <View
-            key={d.key}
-            style={styles.day}
-            accessible
-            accessibilityLabel={`${d.date.toDateString()}: ${Math.round(d.ratio * 100)} percent kept`}>
-            <ProgressRing
-              value={d.ratio}
-              size={36}
-              stroke={4.5}
-              colors={full ? [C.jade, '#9BE7C6'] : [C.accent, '#BFAEFF']}>
-              {full ? <Text style={{ color: C.jade, fontFamily: F.extra, fontSize: 13 }}>✓</Text> : null}
-            </ProgressRing>
-            <Small color={today ? C.mist : C.faint} style={today ? { fontFamily: F.bold } : undefined}>
-              {weekdayLetter(d.date)}
-            </Small>
-          </View>
-        );
-      })}
-    </View>
-  );
+/* ---------- colour maths (derived from theme colours, never new hex values) ---------- */
+
+function rgb(hex: string): [number, number, number] {
+  const n = parseInt(hex.replace('#', '').slice(0, 6), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
 
-const MOODS: { icon: LucideIcon; label: string }[] = [
-  { icon: Frown, label: 'Rough' },
-  { icon: Annoyed, label: 'Low' },
-  { icon: Meh, label: 'Okay' },
-  { icon: Smile, label: 'Good' },
-  { icon: Laugh, label: 'Great' },
+/** Mix two hex colours; returns rgba() so it can carry an alpha. */
+export function mix(a: string, b: string, t: number, alpha = 1): string {
+  const A = rgb(a);
+  const B = rgb(b);
+  const c = A.map((v, i) => Math.round(v + (B[i] - v) * t));
+  return `rgba(${c[0]},${c[1]},${c[2]},${alpha})`;
+}
+
+/** Colour at position t (0..1) along a list of hex stops. */
+export function along(stops: readonly string[], t: number, alpha = 1): string {
+  const x = Math.max(0, Math.min(1, t)) * (stops.length - 1);
+  const i = Math.min(stops.length - 2, Math.floor(x));
+  return mix(stops[i], stops[i + 1], x - i, alpha);
+}
+
+/* ---------- mood shapes (Health State of Mind) ---------- */
+
+export const MOOD_IMAGES: ImageSource[] = [
+  require('@/assets/3d/mood-1.webp'),
+  require('@/assets/3d/mood-2.webp'),
+  require('@/assets/3d/mood-3.webp'),
+  require('@/assets/3d/mood-4.webp'),
+  require('@/assets/3d/mood-5.webp'),
+  require('@/assets/3d/mood-6.webp'),
+  require('@/assets/3d/mood-7.webp'),
 ];
 
-/** Five face buttons for mood. */
-export function MoodPicker({ value, onChange }: { value?: number; onChange: (v: number) => void }) {
-  return (
-    <View style={styles.moodRow}>
-      {MOODS.map((m, i) => {
-        const n = i + 1;
-        const on = value === n;
-        const I = m.icon;
-        const [a] = Pastel[(['rose', 'peach', 'butter', 'mint', 'sky'] as const)[i]];
-        return (
-          <Pressable
-            key={m.label}
-            accessibilityRole="radio"
-            accessibilityState={{ selected: on }}
-            accessibilityLabel={m.label}
-            onPress={() => {
-              haptic.tap();
-              onChange(n);
-            }}
-            style={[styles.mood, on && { backgroundColor: a, borderColor: a }]}>
-            <I size={24} color={on ? C.onLight : C.haze} strokeWidth={2} />
-            <Text style={{ fontFamily: F.semi, fontSize: 11, color: on ? C.onLight : C.faint }}>{m.label}</Text>
-          </Pressable>
-        );
-      })}
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  week: { flexDirection: 'row', justifyContent: 'space-between' },
-  day: { alignItems: 'center', gap: 6 },
-  moodRow: { flexDirection: 'row', gap: S.sm },
-  mood: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 4,
-    paddingVertical: 10,
-    borderRadius: 16,
-    backgroundColor: C.raised,
-    borderWidth: 1,
-    borderColor: C.line,
-  },
-});
+export const moodImage = (valence: number): ImageSource => MOOD_IMAGES[Math.max(1, Math.min(7, Math.round(valence))) - 1];
