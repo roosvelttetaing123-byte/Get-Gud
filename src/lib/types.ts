@@ -114,4 +114,5 @@ export interface State {
   seenAwards: string[]; // award ids already celebrated
   lastReconciled?: string; // dayKey when streak freezes were last applied
   freezeMark?: number; // 7-day blocks already credited with a freeze
+  reviewSeen?: string; // Monday key of the last week in review watched (hides the "Your week" card)
 }

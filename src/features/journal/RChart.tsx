@@ -1,28 +1,34 @@
 /**
  * Screen Time-style bar chart of net R per day: green up, red down, around a zero line.
- * Week shows Mon–Sun with day letters; Month shows the last 30 days with thinner bars.
- * Tap a bar for that day's value in a floating label.
+ * 7 days shows a weekday letter under each bar; 30 days shows thinner bars with weekly dates.
+ *
+ * Press and drag across the bars to read each day in the header (Stocks-style); let go and it
+ * returns to the total. A quick tap keeps that day in the header until you tap it again.
  */
-import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useRef, useState } from 'react';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 import Svg, { Line, Path, Rect } from 'react-native-svg';
 
 import { C, FONT, S } from '@/constants/theme';
 import { haptic } from '@/lib/haptics';
-import { Card, Num, Row, Segmented, Txt, useSpringValue } from '@/ui';
+import { Card, Num, Segmented, Txt, useSpringValue } from '@/ui';
 
 import { count, fmtRx, pct, rColor } from './format';
-import type { DayBar, Range, Series } from './insight';
+import { barLine, type DayBar, type Range, type Series } from './insight';
 
 const RANGES: { value: Range; label: string }[] = [
-  { value: 'week', label: 'Week' },
-  { value: 'month', label: 'Month' },
+  { value: '7d', label: '7 days' },
+  { value: '30d', label: '30 days' },
 ];
 
-const PLOT_H = 132; // bars live here
-const BAND = 34; // room above the bars for the floating label
+const PLOT_H = 140; // bars live here
+const HEAD = 10; // room above the tallest bar for the reading line
 const AXIS_W = 36; // right-hand scale labels
 const TICK_H = 26;
+/** A tap is a short press that barely moves; anything else is a scrub. */
+const TAP_MS = 350;
+const TAP_SLOP = 6;
+const WEB_SCRUB = Platform.OS === 'web' ? ({ touchAction: 'none', userSelect: 'none', cursor: 'pointer' } as object) : null;
 
 export function RChart({
   series,
@@ -33,32 +39,40 @@ export function RChart({
   range: Range;
   onRange: (r: Range) => void;
 }) {
+  const [sel, setSel] = useState<number | null>(null);
+  const day = sel !== null ? series.bars[sel] : null;
   const net = useSpringValue(series.netR, 'smooth');
-  const shown = Math.round(net * 100) / 100;
-  const sub = series.closed
-    ? `${pct(series.winRate)} win rate · ${count(series.closed, 'trade')}`
-    : 'No closed trades yet';
+  const shown = day ? day.netR : Math.round(net * 100) / 100;
+  const color = day ? (day.closed ? rColor(day.netR) : C.label3) : series.closed ? rColor(series.netR) : C.label2;
+  const sub = day
+    ? barLine(day)
+    : series.closed
+      ? `${pct(series.winRate)} win rate · ${count(series.closed, 'trade')}`
+      : 'No closed trades';
 
   return (
     <Card padding={S.lg} style={{ gap: S.md }}>
-      <Row align="flex-start" gap={S.md}>
-        <View style={{ flex: 1, gap: 2 }}>
-          <Txt v="footnote" weight="600" color={C.label2}>
-            {series.title}
-          </Txt>
-          <Num size={34} color={series.closed ? rColor(series.netR) : C.label2} numberOfLines={1}>
-            {fmtRx(shown)}
-          </Num>
-          <Txt v="footnote" color={C.label2} numberOfLines={1}>
-            {sub}
-          </Txt>
-        </View>
-        <View style={{ width: 132 }}>
-          <Segmented options={RANGES} value={range} onChange={onRange} />
-        </View>
-      </Row>
-      {/* Remount per range so bars grow in again and the selection resets. */}
-      <Bars key={range} bars={series.bars} thin={range === 'month'} />
+      <Segmented
+        options={RANGES}
+        value={range}
+        onChange={(r) => {
+          setSel(null);
+          onRange(r);
+        }}
+      />
+      <View style={{ gap: 2 }} accessibilityLiveRegion="polite">
+        <Txt v="footnote" weight="600" color={day ? C.label : C.label2} numberOfLines={1}>
+          {day ? day.title : series.title}
+        </Txt>
+        <Num size={34} color={color} numberOfLines={1}>
+          {fmtRx(shown)}
+        </Num>
+        <Txt v="footnote" color={C.label2} numberOfLines={1}>
+          {sub}
+        </Txt>
+      </View>
+      {/* Remount per range so the bars grow in again. */}
+      <Bars key={range} bars={series.bars} thin={range === '30d'} sel={sel} onSelect={setSel} />
     </Card>
   );
 }
@@ -81,11 +95,24 @@ function barPath(x: number, w: number, zeroY: number, h: number, up: boolean) {
   return `M${x},${zeroY}V${bot - r}Q${x},${bot} ${x + r},${bot}H${x + w - r}Q${x + w},${bot} ${x + w},${bot - r}V${zeroY}Z`;
 }
 
-function Bars({ bars, thin }: { bars: DayBar[]; thin: boolean }) {
+function spokenBar(b: DayBar) {
+  return b.closed ? `${b.spoken}: ${fmtRx(b.netR)}, ${barLine(b)}` : `${b.spoken}: ${barLine(b)}`;
+}
+
+function Bars({
+  bars,
+  thin,
+  sel,
+  onSelect,
+}: {
+  bars: DayBar[];
+  thin: boolean;
+  sel: number | null;
+  onSelect: (i: number | null) => void;
+}) {
   const [width, setWidth] = useState(0);
-  const [sel, setSel] = useState<number | null>(null);
-  const [labelW, setLabelW] = useState(0);
   const grow = useSpringValue(1, 'smooth', 0);
+  const touch = useRef({ origin: 0, x0: 0, t0: 0, moved: false, i: -1, was: null as number | null });
 
   const plotW = Math.max(0, width - AXIS_W);
   const n = bars.length;
@@ -96,12 +123,11 @@ function Bars({ bars, thin }: { bars: DayBar[]; thin: boolean }) {
   const maxNeg = niceMax(Math.max(0, ...bars.map((b) => -b.netR)));
   const top = maxPos || (maxNeg ? 0 : 1);
   const span = top + maxNeg;
-  const y0 = BAND;
+  const y0 = HEAD;
   const zeroY = y0 + (span ? (top / span) * PLOT_H : PLOT_H);
   const scale = span ? PLOT_H / span : 0;
-  const H = BAND + PLOT_H + 2;
+  const H = HEAD + PLOT_H + 2;
 
-  const selected = sel !== null ? bars[sel] : null;
   const cx = (i: number) => slot * (i + 0.5);
   const barTop = (b: DayBar) =>
     b.netR > 0 ? zeroY - Math.max(4, b.netR * scale) : b.netR < 0 ? zeroY : zeroY - 2;
@@ -111,6 +137,18 @@ function Bars({ bars, thin }: { bars: DayBar[]; thin: boolean }) {
   if (top) grids.push({ y: y0, label: gridLabel(top) });
   grids.push({ y: zeroY, label: '0', solid: true });
   if (maxNeg) grids.push({ y: y0 + PLOT_H, label: gridLabel(-maxNeg) });
+
+  // Scrub: the finger's x on the page, against where the plot starts.
+  const indexAt = (pageX: number) => Math.max(0, Math.min(n - 1, Math.floor((pageX - touch.current.origin) / Math.max(1, slot))));
+  const pickAt = (pageX: number) => {
+    const i = indexAt(pageX);
+    if (i === touch.current.i) return;
+    touch.current.i = i;
+    haptic.tap();
+    onSelect(i);
+  };
+
+  const selected = sel !== null ? bars[sel] : null;
 
   return (
     <View onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
@@ -130,36 +168,28 @@ function Bars({ bars, thin }: { bars: DayBar[]; thin: boolean }) {
               />
             ))}
             {bars.map((b, i) => {
-              if (b.future) return null;
-              const dim = sel !== null && sel !== i ? 0.32 : 1;
+              const dim = sel !== null && sel !== i ? 0.3 : 1;
               const x = cx(i) - barW / 2;
-              if (b.isToday && !thin) {
-                // a soft column marks today
-                return (
-                  <React.Fragment key={b.key}>
-                    <Rect
-                      x={cx(i) - slot / 2 + 3}
-                      y={y0 - 6}
-                      width={slot - 6}
-                      height={PLOT_H + 10}
-                      rx={10}
-                      fill="rgba(255,255,255,0.055)"
-                    />
-                    {renderBar(b, x, barW, zeroY, scale, grow, dim)}
-                  </React.Fragment>
-                );
-              }
-              return <React.Fragment key={b.key}>{renderBar(b, x, barW, zeroY, scale, grow, dim)}</React.Fragment>;
+              const column =
+                (b.isToday && !thin) || sel === i ? (
+                  <Rect
+                    x={cx(i) - slot / 2 + (thin ? 0 : 3)}
+                    y={y0 - 6}
+                    width={thin ? slot : slot - 6}
+                    height={PLOT_H + 10}
+                    rx={thin ? 3 : 10}
+                    fill={sel === i ? 'rgba(255,255,255,0.09)' : 'rgba(255,255,255,0.05)'}
+                  />
+                ) : null;
+              return (
+                <React.Fragment key={b.key}>
+                  {column}
+                  {renderBar(b, x, barW, zeroY, scale, grow, dim)}
+                </React.Fragment>
+              );
             })}
             {selected ? (
-              <Line
-                x1={cx(sel!)}
-                x2={cx(sel!)}
-                y1={26}
-                y2={barTop(selected)}
-                stroke={C.label3}
-                strokeWidth={1}
-              />
+              <Line x1={cx(sel!)} x2={cx(sel!)} y1={0} y2={barTop(selected)} stroke={C.label2} strokeWidth={1.5} />
             ) : null}
           </Svg>
         ) : null}
@@ -171,54 +201,60 @@ function Bars({ bars, thin }: { bars: DayBar[]; thin: boolean }) {
           </Text>
         ))}
 
-        {/* floating label for the tapped bar */}
-        {selected ? (
-          <View
-            pointerEvents="none"
-            onLayout={(e) => setLabelW(e.nativeEvent.layout.width)}
-            style={[
-              styles.callout,
-              {
-                opacity: labelW ? 1 : 0,
-                left: Math.max(0, Math.min(plotW - labelW, cx(sel!) - labelW / 2)),
-              },
-            ]}>
-            {selected.closed ? (
-              <Text style={[styles.calloutNum, { color: rColor(selected.netR) }]}>{fmtRx(selected.netR)}</Text>
-            ) : null}
-            <Text style={styles.calloutText}>
-              {selected.closed ? `${selected.title} · ${count(selected.closed, 'trade')}` : `${selected.title} · No trades`}
-            </Text>
-          </View>
-        ) : null}
-
-        {/* tap targets, one per day */}
-        <View style={[StyleSheet.absoluteFill, { flexDirection: 'row', width: plotW }]}>
-          {bars.map((b, i) => (
-            <Pressable
-              key={b.key}
-              disabled={b.future}
-              accessibilityRole="button"
-              accessibilityLabel={
-                b.closed ? `${b.spoken}: ${fmtRx(b.netR)} from ${count(b.closed, 'trade')}` : `${b.spoken}: no trades`
-              }
-              onPress={() => {
-                haptic.tap();
-                setLabelW(0);
-                setSel((s) => (s === i ? null : i));
-              }}
-              style={{ flex: 1 }}
-            />
-          ))}
-        </View>
+        {/* One flat touch surface over the plot: press, drag, release. */}
+        <View
+          style={[StyleSheet.absoluteFill, { width: plotW }, WEB_SCRUB]}
+          accessible
+          accessibilityRole="adjustable"
+          accessibilityLabel="R by day"
+          accessibilityHint="Drag across the bars to read each day"
+          accessibilityValue={{ text: selected ? spokenBar(selected) : 'Total' }}
+          accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
+          onAccessibilityAction={(e) => {
+            const step = e.nativeEvent.actionName === 'increment' ? 1 : -1;
+            const next = sel === null ? (step > 0 ? 0 : n - 1) : Math.max(0, Math.min(n - 1, sel + step));
+            onSelect(next);
+          }}
+          onStartShouldSetResponder={() => true}
+          onMoveShouldSetResponder={() => true}
+          onResponderTerminationRequest={() => false}
+          onResponderGrant={(e) => {
+            const t = touch.current;
+            t.origin = e.nativeEvent.pageX - e.nativeEvent.locationX;
+            t.x0 = e.nativeEvent.pageX;
+            t.t0 = Date.now();
+            t.moved = false;
+            t.was = sel;
+            t.i = sel ?? -1;
+            pickAt(e.nativeEvent.pageX);
+          }}
+          onResponderMove={(e) => {
+            if (Math.abs(e.nativeEvent.pageX - touch.current.x0) > TAP_SLOP) touch.current.moved = true;
+            pickAt(e.nativeEvent.pageX);
+          }}
+          onResponderRelease={() => {
+            const t = touch.current;
+            const tap = !t.moved && Date.now() - t.t0 < TAP_MS;
+            // A tap keeps the day (tap it again to let go); a drag or a hold returns to the total.
+            const keep = tap && t.was !== t.i ? t.i : null;
+            t.i = keep ?? -1;
+            onSelect(keep);
+          }}
+          onResponderTerminate={() => {
+            touch.current.i = -1;
+            onSelect(null);
+          }}
+        />
       </View>
 
-      {/* day letters (week) or weekly dates (month) */}
-      <View style={{ width: plotW, height: TICK_H }}>
+      {/* weekday letters (7 days) or weekly dates (30 days) */}
+      <View style={{ width: plotW, height: TICK_H }} pointerEvents="none">
         {bars.map((b, i) => {
-          if (!b.tick) return null;
           const on = sel === i;
           if (thin) {
+            // While reading a day, its date replaces the weekly ticks that would crowd it.
+            const crowded = sel !== null && !on && Math.abs(sel - i) < 3;
+            if ((!b.tick && !on) || crowded) return null;
             return (
               <Text
                 key={b.key}
@@ -228,11 +264,11 @@ function Bars({ bars, thin }: { bars: DayBar[]; thin: boolean }) {
                   styles.date,
                   {
                     left: cx(i) - 20,
-                    color: b.isToday || on ? C.label : C.label2,
+                    color: on ? C.label : b.isToday ? C.label : C.label2,
                     fontWeight: b.isToday || on ? '700' : '500',
                   },
                 ]}>
-                {b.tick}
+                {on ? b.key.slice(8).replace(/^0/, '') : b.tick}
               </Text>
             );
           }
@@ -243,15 +279,12 @@ function Bars({ bars, thin }: { bars: DayBar[]; thin: boolean }) {
                 styles.letter,
                 { left: cx(i) - 11 },
                 b.isToday && { backgroundColor: C.label },
-                on && !b.isToday && { backgroundColor: C.fill2 },
+                on && !b.isToday && { backgroundColor: C.fill },
               ]}>
               <Text
                 style={[
                   styles.tick,
-                  {
-                    color: b.isToday ? C.bg : b.future ? C.label3 : C.label2,
-                    fontWeight: b.isToday || on ? '700' : '500',
-                  },
+                  { color: b.isToday ? C.bg : on ? C.label : C.label2, fontWeight: b.isToday || on ? '700' : '500' },
                 ]}>
                 {b.tick}
               </Text>
@@ -283,19 +316,6 @@ const styles = StyleSheet.create({
     color: C.label3,
     fontVariant: ['tabular-nums'],
   },
-  callout: {
-    position: 'absolute',
-    top: 0,
-    height: 26,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
-    borderRadius: 13,
-    backgroundColor: C.card2,
-  },
-  calloutNum: { fontFamily: FONT.rounded, fontSize: 14, fontWeight: '700', fontVariant: ['tabular-nums'] },
-  calloutText: { fontFamily: FONT.system, fontSize: 12, fontWeight: '500', color: C.label2 },
   letter: {
     position: 'absolute',
     top: 2,

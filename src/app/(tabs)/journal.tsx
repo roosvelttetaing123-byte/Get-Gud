@@ -1,24 +1,27 @@
+/**
+ * Journal: one story, top to bottom. Your week (Sunday evening to Tuesday), anything waiting for
+ * a result, the one insight, R by day (scrub it), your days in colour, what moves your results,
+ * then the entries themselves.
+ */
 import { router } from 'expo-router';
 import { BookOpen, Plus } from 'lucide-react-native';
 import React, { useMemo, useState } from 'react';
-import { View } from 'react-native';
 
-import { C, S } from '@/constants/theme';
 import { useNow } from '@/features/journal/bits';
-import { EntryDay } from '@/features/journal/Entries';
-import { FeelingCosts } from '@/features/journal/FeelingCosts';
-import { groupByDay } from '@/features/journal/format';
+import { DaySheet } from '@/features/journal/DaySheet';
+import { Entries, NeedsResult } from '@/features/journal/Entries';
 import { HighlightCard } from '@/features/journal/Highlight';
 import { chartSeries, pickHighlight, type Range } from '@/features/journal/insight';
+import { MoodCalendar } from '@/features/journal/MoodCalendar';
+import { Patterns } from '@/features/journal/Patterns';
 import { RChart } from '@/features/journal/RChart';
-import { RulesSummary } from '@/features/journal/RulesSummary';
-import { SleepCosts } from '@/features/journal/SleepCosts';
+import { useLatestReview, WeekReviewCard } from '@/features/review/WeekReviewCard';
+import { WeekStory } from '@/features/review/WeekStory';
 import { journalStats } from '@/lib/derive';
 import { sleepEdge } from '@/lib/sleepEdge';
 import { useStore } from '@/lib/store';
-import { Button, Empty, IconButton, Screen, Section } from '@/ui';
+import { Empty, IconButton, Screen, Section } from '@/ui';
 
-const PAGE = 60;
 const toGate = () => router.push('/gate');
 const openTrade = (id: string) => router.push(`/trade/${id}`);
 
@@ -26,78 +29,61 @@ export default function JournalScreen() {
   const state = useStore();
   const { trades } = state;
   const now = useNow();
-  const [range, setRange] = useState<Range>('week');
-  const [limit, setLimit] = useState(PAGE);
+  const [range, setRange] = useState<Range>('7d');
+  const [day, setDay] = useState<{ key: string; open: boolean } | null>(null);
+  const [story, setStory] = useState(false);
+  const latest = useLatestReview(now);
 
   const stats = useMemo(() => journalStats(state), [state]);
   const highlight = useMemo(() => pickHighlight(stats), [stats]);
   const edge = useMemo(() => sleepEdge(state), [state]);
   const series = useMemo(() => chartSeries(trades, range, now), [trades, range, now]);
 
-  // Newest first, capped, then grouped by day.
-  const sorted = useMemo(() => [...trades].sort((a, b) => b.ts - a.ts), [trades]);
-  const days = useMemo(() => groupByDay(sorted.slice(0, limit)), [sorted, limit]);
+  const closeDay = () => setDay((d) => (d ? { ...d, open: false } : d));
 
-  const accessory = <IconButton icon={Plus} label="Check before you trade" onPress={toGate} />;
+  return (
+    <Screen
+      backdrop="journal"
+      title="Journal"
+      accessory={<IconButton icon={Plus} label="Check before you trade" onPress={toGate} />}>
+      <WeekReviewCard now={now} />
+      <NeedsResult trades={trades} now={now} onOpen={openTrade} />
 
-  if (!trades.length) {
-    return (
-      <Screen backdrop="journal" title="Journal" accessory={accessory}>
+      {trades.length ? (
+        <>
+          <HighlightCard highlight={highlight} closed={stats.closed} />
+          <RChart series={series} range={range} onRange={setRange} />
+        </>
+      ) : (
         <Empty
           icon={BookOpen}
           title="Every trade starts at the gate."
           message="Name the feeling, tick your rules, then decide."
           action={{ label: 'Check before you trade', onPress: toGate }}
         />
-      </Screen>
-    );
-  }
+      )}
 
-  const feelings = stats.byEmotion;
-  const hasRules = stats.followed.n + stats.broke.n + stats.overrides.n + stats.skipped > 0;
-
-  return (
-    <Screen backdrop="journal" title="Journal" accessory={accessory}>
-      <HighlightCard highlight={highlight} closed={stats.closed} />
-
-      <RChart series={series} range={range} onRange={setRange} />
-
-      {feelings.length ? (
-        <Section title="What each feeling costs" footer="Average R per trade, worst first.">
-          <FeelingCosts buckets={feelings} />
-        </Section>
-      ) : null}
-
-      <SleepCosts edge={edge} />
-
-      {hasRules ? (
-        <Section title="By the rules">
-          <RulesSummary
-            followed={stats.followed}
-            broke={stats.broke}
-            overrides={stats.overrides}
-            skipped={stats.skipped}
-          />
-        </Section>
-      ) : null}
-
-      <Section title="Entries">
-        <View style={{ gap: S.lg }}>
-          {days.map((d) => (
-            <EntryDay key={d.key} group={d} now={now} onOpen={openTrade} />
-          ))}
-        </View>
-        {sorted.length > limit ? (
-          <Button
-            title="Show more"
-            kind="gray"
-            size="medium"
-            color={C.tint}
-            onPress={() => setLimit((l) => l + PAGE)}
-            style={{ marginTop: S.sm }}
-          />
-        ) : null}
+      <Section
+        title="Your days"
+        action={latest.review.empty ? undefined : { label: 'Week in review', onPress: () => setStory(true) }}>
+        <MoodCalendar state={state} now={now} onOpenDay={(key) => setDay({ key, open: true })} />
       </Section>
+
+      {trades.length ? <Patterns stats={stats} edge={edge} /> : null}
+      {trades.length ? <Entries trades={trades} now={now} onOpen={openTrade} /> : null}
+
+      <DaySheet
+        dayKey={day?.key ?? null}
+        visible={!!day?.open}
+        onClose={closeDay}
+        now={now}
+        onOpenTrade={(id) => {
+          closeDay();
+          // Let the sheet get out of the way before the trade slides up.
+          setTimeout(() => openTrade(id), 320);
+        }}
+      />
+      <WeekStory visible={story} now={now} onClose={() => setStory(false)} />
     </Screen>
   );
 }
