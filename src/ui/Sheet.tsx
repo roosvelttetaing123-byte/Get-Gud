@@ -5,7 +5,7 @@
 import { X } from 'lucide-react-native';
 import React from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useInsets } from './insets';
 
 import { C, R, S } from '@/constants/theme';
 
@@ -31,7 +31,7 @@ export function Sheet({
   scroll?: boolean;
 }) {
   const { height } = useWindowDimensions();
-  const insets = useSafeAreaInsets();
+  const insets = useInsets();
   const sheetH = Math.round(height * (detent === 'large' ? 0.92 : 0.62));
   const p = useSpringValue(visible ? 1 : 0, 'smooth', 0);
   // Stay mounted while the close animation plays out.

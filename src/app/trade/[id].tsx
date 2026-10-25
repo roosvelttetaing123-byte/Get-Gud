@@ -2,7 +2,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { SearchX, ShieldAlert, ShieldCheck, Trash2 } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { ScrollView, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useInsets } from '@/ui/insets';
 
 import { C, S } from '@/constants/theme';
 import { useNow } from '@/features/journal/bits';
@@ -56,7 +56,7 @@ export default function TradeResultScreen() {
 
 /** Screen modal with a fixed nav bar and its own scroll view, so Save stays in reach. */
 function Sheet({ bar, children }: { bar: React.ReactNode; children: React.ReactNode }) {
-  const insets = useSafeAreaInsets();
+  const insets = useInsets();
   const below = insets.bottom + S.xxxl; // the padding Screen leaves under a non-scrolling column
   return (
     <Screen modal scroll={false} gap={S.sm} contentStyle={{ flex: 1 }}>

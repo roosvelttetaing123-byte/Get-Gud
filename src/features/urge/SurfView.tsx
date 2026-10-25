@@ -5,7 +5,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useId } from 'react';
 import { Modal, StyleSheet, View, useWindowDimensions } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useInsets } from '@/ui/insets';
 import Svg, { Defs, Ellipse, RadialGradient, Stop } from 'react-native-svg';
 
 import { C, S } from '@/constants/theme';
@@ -56,7 +56,7 @@ function SurfBody({
   onEnd: (seconds: number) => void;
 }) {
   const { kind, startAt, endAt, seed } = session;
-  const insets = useSafeAreaInsets();
+  const insets = useInsets();
   const { width, height } = useWindowDimensions();
   const reduce = useReduceMotion();
   const breath = useBreath(startAt, active);

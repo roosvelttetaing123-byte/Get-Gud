@@ -19,7 +19,7 @@ import Animated, {
   withTiming,
   type SharedValue,
 } from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useInsets } from '@/ui/insets';
 
 import { FONT, S, SPRING } from '@/constants/theme';
 import { haptic } from '@/lib/haptics';
@@ -64,7 +64,7 @@ function build(s: State, now: number): Built {
 function Story({ now, onDone }: { now: number; onDone: (week: Week) => void }) {
   const state = useStore();
   const reduce = useReduceMotion();
-  const insets = useSafeAreaInsets();
+  const insets = useInsets();
   const { width, height } = useWindowDimensions();
   // Built once per opening, so nothing shifts while you watch.
   const [story] = useState(() => build(state, now));

@@ -7,7 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { ChevronLeft } from 'lucide-react-native';
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useInsets } from '@/ui/insets';
 
 import { C, S, TABBAR } from '@/constants/theme';
 import { IconButton, useSpringValue } from '@/ui';
@@ -16,7 +16,7 @@ import { rgba, valenceRgb } from './logic';
 
 /** Distance from the screen bottom to the top of the floating tab bar (mirrors TabBar). */
 export function useTabBarTop() {
-  const insets = useSafeAreaInsets();
+  const insets = useInsets();
   return Math.max(insets.bottom - 8, 12) + TABBAR.height;
 }
 
@@ -94,7 +94,7 @@ export function Frame({
   footer: React.ReactNode;
   children: React.ReactNode;
 }) {
-  const insets = useSafeAreaInsets();
+  const insets = useInsets();
   const tabTop = useTabBarTop();
   return (
     <View style={styles.screen}>

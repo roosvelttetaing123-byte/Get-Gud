@@ -6,7 +6,7 @@
  */
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { Modal, StyleSheet, View, useWindowDimensions } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useInsets } from '@/ui/insets';
 
 import { C, S } from '@/constants/theme';
 import { Bloom } from '@/features/urge/Bloom';
@@ -62,7 +62,7 @@ export function SleepMode() {
 }
 
 function Frame({ children }: { children: React.ReactNode }) {
-  const insets = useSafeAreaInsets();
+  const insets = useInsets();
   return (
     <View style={[styles.root, { paddingTop: insets.top + S.xl, paddingBottom: insets.bottom + S.xl }]}>{children}</View>
   );

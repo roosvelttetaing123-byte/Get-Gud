@@ -11,6 +11,7 @@ import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { C, FONT, TABBAR } from '@/constants/theme';
 import { haptic } from '@/lib/haptics';
 
+import { useInsets } from './insets';
 import { useSpringValue } from './motion';
 
 const TABS: Record<string, { label: string; icon: LucideIcon; color: string }> = {
@@ -21,7 +22,8 @@ const TABS: Record<string, { label: string; icon: LucideIcon; color: string }> =
   sleep: { label: 'Sleep', icon: Moon, color: C.indigo },
 };
 
-export function TabBar({ state, navigateToTab, insets }: BottomTabBarProps) {
+export function TabBar({ state, navigateToTab }: BottomTabBarProps) {
+  const insets = useInsets();
   const [w, setW] = useState(0);
   const routes = state.routes.filter((r) => TABS[r.name]);
   const active = Math.max(0, routes.findIndex((r) => r.key === state.routes[state.index]?.key));
