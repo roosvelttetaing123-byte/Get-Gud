@@ -28,7 +28,7 @@ export interface Moment {
 }
 
 /** Ties at the same minute read in this order. */
-const ORDER: MomentKind[] = ['checkin', 'light', 'window', 'peak', 'dip', 'caffeine', 'close', 'screens', 'bed'];
+const ORDER: MomentKind[] = ['checkin', 'light', 'peak', 'dip', 'window', 'caffeine', 'close', 'screens', 'bed'];
 
 const HABIT_LABEL: Partial<Record<string, string>> = {
   light: 'Get daylight',
@@ -70,9 +70,10 @@ export function dayMoments(sched: Schedule, edge: SleepEdge, day: DayLog | undef
     out.push({ key: `window-${w.phase}`, kind: 'window', at: w.start, end: w.end, label: 'Trade window', go: 'gate', ritual: false, done: false });
   }
 
-  // The first peak and the dip, unless that phase is already a trade window (one column, not two).
+  // The first peak (unless it's already a trade window: same message, one column) and the
+  // afternoon dip, always: even when you trade it well, it's still when energy sags and a nap fits.
   for (const p of sched.phases) {
-    if ((p.id !== 'peak1' && p.id !== 'dip') || windowPhases.has(p.id)) continue;
+    if (p.id !== 'dip' && (p.id !== 'peak1' || windowPhases.has(p.id))) continue;
     out.push({ key: p.id, kind: p.id === 'peak1' ? 'peak' : 'dip', at: p.start, end: p.end, label: p.label, go: 'sleep', ritual: false, done: false });
   }
 
