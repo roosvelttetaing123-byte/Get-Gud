@@ -87,18 +87,20 @@ If the kit lacks something you need, build it inside your own feature folder in 
 ## Pattern per screen (from Apple first-party apps)
 
 - **Today = Fitness Summary.**
-  - Rings are the hero.
-  - One primary action by stage: "Check in" (morning sheet, 4 taps: mood slider, energy, sleep, intention), "Close the day" (evening sheet, 3 taps), or a calm done state.
-  - Then promises as switch rows, the week strip, and the streak with freezes.
+  - The hero is a compact card: rings at the left, the three numbers at the right. Tap for "Today's rings" (what's left, with promise switches); swipe the rings to spin them.
+  - One primary action by stage: "Check in" (morning sheet, 4 taps: mood slider, energy, sleep, intention), "Check before you trade" with the day's trades and trade window under it, "Close the day" (evening sheet, 3 taps), or a calm done state.
+  - Then "Your day" (a timeline strip from the sleep engine), the Week in review card (Sunday evening until watched), one coach card, promises as switch rows, the streak with freezes, and the why as a quiet quote.
 - **Gate = Health State of Mind, then a checklist, then a Weather-style verdict.**
   - Step 1: a slider over the 7 mood shapes, colour shifting purple→blue→orange.
   - Step 2: name the feeling with chips, plus "what's it about" associations.
   - Step 3: rules as switches.
   - Step 4: a full-bleed verdict with one action. A Wait shows a countdown ring.
   - Under 30 seconds in total.
-- **Journal = Health Highlights plus Screen Time charts.** One plain-English insight, a weekly R bar chart coloured by verdict, "What each feeling costs" sorted worst first, then entries.
+- **Journal = Health Highlights plus Screen Time charts.** One plain-English insight, a 7 / 30 day R chart you can scrub, "Your days" (mood calendar with a day sheet), one card with three lenses (feelings, tiredness, rules), then filterable entries. The Week in review story lives here too (Apple Music Replay style).
 - **Urge = Breathe plus one sec.** Name it with big chips, rate it with a vertical slider, then a breathing bloom (4s in / 6s out, 1/3/5 min). Re-rate and show the drop ("8 to 4").
-- **Settings = iOS Settings.** Inset grouped lists with coloured icon squares, a chevron, and switches.
+- **Sleep = Health Sleep plus the iOS Clock bedtime dial.** Debt on the night sky, scrubbable nights, a 24-hour body-clock dial you turn, trade windows, habits, nights and settings.
+- **Medals = Fitness awards.** Live 3D (`features/medal3d`): drag, flick, double-tap to flip, tilt to look. The pre-rendered WebP shows first and stays wherever WebGL can't run.
+- **Settings = iOS Settings.** Inset grouped lists with coloured icon squares, a chevron, and switches. Background picker at the top.
 
 ## Visual QA (required)
 
