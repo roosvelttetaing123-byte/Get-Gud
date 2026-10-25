@@ -41,7 +41,9 @@ const STARS = Array.from({ length: 28 }, (_, i) => {
     const x = Math.sin(i * 12.9898 + k * 78.233) * 43758.5453;
     return x - Math.floor(x);
   };
-  return { x: r(1) * 100, y: 2 + r(2) * 38, s: 1 + r(3) * 1.6, d: r(4) * 4.5, o: 0.35 + r(5) * 0.6 };
+  // Keep the middle clear: big numbers and titles sit there, and a star next to text reads as a typo.
+  const side = r(1) < 0.5 ? r(6) * 20 : 80 + r(6) * 20;
+  return { x: side, y: 2 + r(2) * 38, s: 1 + r(3) * 1.6, d: r(4) * 4.5, o: 0.35 + r(5) * 0.6 };
 });
 
 const fill = { position: 'absolute', inset: 0 } as const;

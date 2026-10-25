@@ -65,7 +65,7 @@ const AXIS_Y = TOP_H + GAP + DOT / 2;
 // Web-only CSS: native-feeling scroll snap, the page still scrolls vertically over the strip, and
 // columns cut by the card's edges fade out instead of showing as clipped fragments.
 const web = (s: object) => (Platform.OS === 'web' ? s : null);
-const FADE = `linear-gradient(to right, transparent 0, #000 ${PAD + 4}px, #000 calc(100% - ${PAD + 4}px), transparent 100%)`;
+const FADE = `linear-gradient(to right, transparent 0, #000 ${PAD * 2}px, #000 calc(100% - ${PAD * 2}px), transparent 100%)`;
 const SNAP_X = web({
   scrollSnapType: 'x mandatory',
   scrollPaddingLeft: PAD,

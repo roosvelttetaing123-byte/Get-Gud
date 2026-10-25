@@ -79,6 +79,10 @@ export function HeroMedal({ view, now }: { view: MedalView; now: Date }) {
       <Txt v="subhead" color={C.label2} align="center" style={{ maxWidth: 300 }}>
         {award.detail}
       </Txt>
+      {/* It's a real 3D medal now; say so once, quietly. */}
+      <Txt v="footnote" color={C.label3} align="center">
+        {earned ? 'Drag to spin. Double-tap to flip.' : 'Drag to spin.'}
+      </Txt>
     </View>
   );
 }

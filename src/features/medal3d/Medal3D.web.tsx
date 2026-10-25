@@ -6,6 +6,7 @@
  * on it can be dragged, flicked, tapped and turned over. Without WebGL the still stays, with its press tilt.
  * Reduce motion: the still stays until it's touched, and nothing moves on its own.
  */
+import { Image } from 'expo-image';
 import { useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { View } from 'react-native';
 
@@ -99,7 +100,8 @@ export function Medal3D({ id, image, size, locked, back, label, intro = 'none', 
   return (
     <View style={{ width: size, height: size }} accessible accessibilityRole="image" accessibilityLabel={label}>
       <div style={{ position: 'absolute', left: 0, top: 0, width: size, height: size, opacity: live ? 0 : 1, transition: fade, pointerEvents: attached ? 'none' : 'auto' }}>
-        <Still image={still} size={size} />
+        {/* the placeholder is just a picture: no tab stop, so a modal never focus-rings it */}
+        <Image source={still} style={{ width: size, height: size }} contentFit="contain" />
       </div>
       <div
         ref={slotRef}

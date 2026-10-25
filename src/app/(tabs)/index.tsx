@@ -18,6 +18,7 @@ import { Promises } from '@/features/today/Promises';
 import { RingsSheet } from '@/features/today/RingsSheet';
 import { appleDate, useHourClock } from '@/features/today/useToday';
 import { WeekStreak } from '@/features/today/WeekStreak';
+import { WeekReviewCard } from '@/features/review/WeekReviewCard';
 import { coach as coachFor } from '@/lib/coach';
 import { tradingToday } from '@/lib/derive';
 import { isPerfect, ringDetails, ringsFor, stageOf, streak, weekStrip } from '@/lib/engage';
@@ -78,13 +79,14 @@ export default function TodayScreen() {
         onCloseDay={openClose}
       />
 
+      {/* Sunday evening to Tuesday, until watched: the week as a story. */}
+      <WeekReviewCard now={now.getTime()} />
+
       <CoachCard coach={coach} dayKey={key} />
 
       <Promises dayKey={key} promises={settings.promises} kept={day?.promises ?? {}} />
 
       <WeekStreak days={weekStrip(state, now)} todayKey={key} streak={streakNow} freezes={settings.freezes} />
-
-      {/* The Journal's "Week in review" card goes here, between the streak and the why. */}
 
       {why ? <WhyQuote why={why} /> : null}
 
