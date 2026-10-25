@@ -280,7 +280,7 @@ describe('slides', () => {
     assert.equal(by.trading.caption, 'of trades by your rules');
     assert.equal(by.trading.line, '+2.5R from 3 trades, and you walked away once.');
     assert.equal(by.urges.value, 2);
-    assert.equal(by.urges.line, 'Every one, ridden out.');
+    assert.equal(by.urges.line, 'You didn’t give in once.');
     assert.equal(by.sleep.unit, 'hm');
     assert.equal(R.fmtHM(by.sleep.value), '7 h 30 m');
   });

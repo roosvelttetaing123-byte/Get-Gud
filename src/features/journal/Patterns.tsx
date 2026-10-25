@@ -1,7 +1,7 @@
 /**
- * "What moves your results": Screen Time's most-used list for what drives your R, in one card
- * with three lenses (Feelings, Sleep, Rules) instead of three long sections. Every row has the
- * same shape: a coloured icon square, the plain facts, the average R and a slim bar.
+ * What drives your R, Screen Time-style, in one card with three lenses instead of three long
+ * sections: "What each feeling costs", "What tiredness costs" (the sleep edge) and "By the rules".
+ * Every row has the same shape: a coloured icon square, the plain facts, the average R and a slim bar.
  */
 import { router } from 'expo-router';
 import {
@@ -31,6 +31,11 @@ import { feelingLook } from './look';
 
 type Lens = 'feelings' | 'sleep' | 'rules';
 const TOP = 4;
+const TITLE: Record<Lens, string> = {
+  feelings: 'What each feeling costs',
+  sleep: 'What tiredness costs',
+  rules: 'By the rules',
+};
 
 /** High debt is orange, never red: it's a fact, not a failure. */
 const REST: Record<RestBand, { icon: LucideIcon; color: string }> = {
@@ -51,7 +56,7 @@ export function Patterns({ stats, edge }: { stats: JournalStats; edge: SleepEdge
   if (!lens) return null;
 
   return (
-    <Section title="What moves your results" footer={footer(lens, stats, edge)}>
+    <Section title={TITLE[lens]} footer={footer(lens, stats, edge)}>
       <Card padding={0} style={{ gap: 0 }}>
         {lenses.length > 1 ? (
           <View style={styles.lenses}>

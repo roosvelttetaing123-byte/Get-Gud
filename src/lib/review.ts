@@ -390,7 +390,7 @@ function urgesSlide(r: WeekReview): Slide {
     riddenOut === logged
       ? logged === 1
         ? 'You sat with it until it passed.'
-        : 'Every one, ridden out.'
+        : 'You didn’t give in once.'
       : riddenOut === 0
         ? 'Naming them is the first step. Next time, start the timer.'
         : 'Each one you ride out makes the next one weaker.';
