@@ -1,133 +1,98 @@
 /**
- * Today's hero: the three rings, Fitness Summary style, with a coloured legend.
- * Built on the kit's single `Ring` so each ring can pick its own spring: rings that
- * close use the bouncy spring, and the whole stack pulses when a ring closes or the
- * day turns perfect.
+ * Today's hero, Fitness Summary style: the rings at the left (spin them), the three ring stats
+ * stacked at the right: the label in the ring colour, a big rounded value, a short caption.
+ * Tap the card for "Today's rings": exactly what's left to close each one.
  */
-import { Sparkles } from 'lucide-react-native';
-import React, { useEffect, useRef } from 'react';
+import { ChevronRight } from 'lucide-react-native';
+import React from 'react';
 import { StyleSheet, View, useWindowDimensions } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withDelay, withSequence, withSpring, withTiming } from 'react-native-reanimated';
-import Svg from 'react-native-svg';
 
-import { C, RING, S, SPRING, type RingKey } from '@/constants/theme';
+import { C, RING, S, type RingKey } from '@/constants/theme';
 import type { RingDetail } from '@/lib/engage';
-import { Badge, Card, Num, Ring, Txt, useReduceMotion, useSpringValue } from '@/ui';
+import { haptic } from '@/lib/haptics';
+import { Card, Num, Txt } from '@/ui';
 
+import { RING_ORDER, TodayRings } from './TodayRings';
 import { mix } from './visuals';
-
-const ORDER: RingKey[] = ['promises', 'mind', 'discipline'];
 
 /** The legend colour: the middle of the ring's sweep. */
 export const ringColor = (k: RingKey) => mix(RING[k].from, RING[k].to, 0.35);
 
-function useRingSpring(v: number) {
-  // Closing a ring gets the bouncy (reward) spring; everything else glides.
-  return useSpringValue(v, v >= 1 ? 'bouncy' : 'smooth', 0);
+/** The value and its short caption, read like Fitness's "350/500 kcal". */
+export function ringStat(d: RingDetail, evening: boolean): { value: string; caption: string } {
+  if (d.key === 'promises') return d.total ? { value: `${d.done}/${d.total}`, caption: 'kept' } : { value: '–', caption: 'add some' };
+  if (d.key === 'mind') {
+    if (d.done === 2) return { value: '2/2', caption: 'done' };
+    // The engine's caption names the missing ritual: "Check in" or "Close the day".
+    const next = d.caption === 'Check in' ? 'check in' : evening ? 'close the day' : 'close tonight';
+    return { value: `${d.done}/2`, caption: next };
+  }
+  return d.total ? { value: `${d.done}/${d.total}`, caption: 'by the rules' } : { value: '100%', caption: 'no trades' };
 }
 
-const pulse = (peak: number) =>
-  withSequence(withTiming(peak, { duration: 140 }), withSpring(1, SPRING.bouncy));
-
-/** The value already says "2/4", so drop a leading "2 of 4" from the caption ("kept", "by the rules"). */
-function captionText(d: RingDetail) {
-  const short = d.caption.replace(/^\d+ of \d+ /, '');
-  return short.charAt(0).toUpperCase() + short.slice(1);
-}
-
-function valueText(d: RingDetail) {
-  if (d.key === 'discipline' && d.total === 0) return '100%';
-  if (d.total === 0) return '–';
-  return `${d.done}/${d.total}`;
-}
-
-export function HeroRings({ details, perfect }: { details: RingDetail[]; perfect: boolean }) {
+export function HeroRings({
+  details,
+  perfect,
+  evening,
+  onPress,
+}: {
+  details: RingDetail[];
+  perfect: boolean;
+  /** Close-the-day time: the Mind caption asks for it now rather than "tonight". */
+  evening: boolean;
+  onPress: () => void;
+}) {
   const { width } = useWindowDimensions();
-  const inner = Math.min(width, 600) - S.margin * 2 - S.lg * 2;
-  const size = Math.round(Math.max(180, Math.min(236, inner * 0.72)));
-  const stroke = Math.round(size * 0.112);
-  const gap = 3;
-
+  const w = Math.min(width, 600);
+  const size = Math.round(Math.max(132, Math.min(160, w * 0.385)));
+  const valueSize = w < 375 ? 22 : 24;
   const by = Object.fromEntries(details.map((d) => [d.key, d])) as Record<RingKey, RingDetail>;
-  const a = useRingSpring(by.promises.value);
-  const b = useRingSpring(by.mind.value);
-  const c = useRingSpring(by.discipline.value);
-  const anim = [a, b, c];
-
-  // One-off bouncy pulse: when the Promises ring closes, and (bigger) when the day turns perfect.
-  const reduce = useReduceMotion();
-  const scale = useSharedValue(1);
-  const prev = useRef<{ promises: number; perfect: boolean } | null>(null);
-  const promises = by.promises.value;
-  useEffect(() => {
-    const was = prev.current;
-    prev.current = { promises, perfect };
-    if (reduce) return;
-    if (!was) {
-      if (perfect) scale.set(withDelay(650, pulse(1.06)));
-      return;
-    }
-    if (perfect && !was.perfect) scale.set(pulse(1.07));
-    else if (promises >= 1 && was.promises < 1) scale.set(pulse(1.04));
-  }, [promises, perfect, reduce, scale]);
-  const pulseStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.get() }] }));
-
-  const label = details.map((d) => `${d.label}: ${d.caption}`).join('. ');
+  const label = `${perfect ? 'Perfect day. ' : ''}${details.map((d) => `${d.label}: ${d.caption}`).join('. ')}. Show what's left`;
 
   return (
-    <Card padding={S.lg} style={styles.card}>
-      <View accessible accessibilityRole="image" accessibilityLabel={label} style={styles.center}>
-        <Animated.View style={[{ width: size, height: size }, pulseStyle]}>
-          <Svg width={size} height={size}>
-            {ORDER.map((k, i) => (
-              <Ring
-                key={k}
-                value={anim[i]}
-                size={size - i * 2 * (stroke + gap)}
-                stroke={stroke}
-                from={RING[k].from}
-                to={RING[k].to}
-                track={RING[k].track}
-                cx={size / 2}
-                cy={size / 2}
-              />
-            ))}
-          </Svg>
-        </Animated.View>
-      </View>
-
-      <View style={styles.legend}>
-        {ORDER.map((k) => {
-          const d = by[k];
-          return (
-            <View key={k} style={styles.item}>
-              <Txt v="subhead" weight="600" color={ringColor(k)} numberOfLines={1}>
-                {d.label}
-              </Txt>
-              <Num size={26} weight="700" numberOfLines={1}>
-                {valueText(d)}
-              </Num>
-              <Txt v="caption1" color={C.label2} align="center" numberOfLines={2}>
-                {captionText(d)}
-              </Txt>
-            </View>
-          );
-        })}
-      </View>
-
-      {perfect ? (
-        <View style={styles.badgeRow}>
-          <Badge label="Perfect day" icon={Sparkles} color={C.tint} solid />
+    <Card onPress={onPress} accessibilityLabel={label} padding={S.lg}>
+      <View style={styles.row}>
+        <TodayRings
+          details={details}
+          perfect={perfect}
+          size={size}
+          onTap={() => {
+            haptic.tap();
+            onPress();
+          }}
+        />
+        <View style={styles.stats}>
+          {RING_ORDER.map((k) => {
+            const s = ringStat(by[k], evening);
+            return (
+              <View key={k}>
+                <Txt v="footnote" weight="600" color={ringColor(k)} numberOfLines={1}>
+                  {by[k].label}
+                </Txt>
+                <View style={styles.value}>
+                  <Num size={valueSize} weight="700" numberOfLines={1}>
+                    {s.value}
+                  </Num>
+                  <Txt v="footnote" weight="500" color={C.label2} numberOfLines={1} style={styles.caption}>
+                    {s.caption}
+                  </Txt>
+                </View>
+              </View>
+            );
+          })}
         </View>
-      ) : null}
+      </View>
+      <View pointerEvents="none" style={styles.chevron}>
+        <ChevronRight size={18} color={C.label3} strokeWidth={2.6} />
+      </View>
     </Card>
   );
 }
 
 const styles = StyleSheet.create({
-  card: { paddingTop: S.xl, paddingBottom: S.xl, gap: S.xl },
-  center: { alignItems: 'center' },
-  badgeRow: { flexDirection: 'row', justifyContent: 'center', marginTop: -S.sm },
-  legend: { flexDirection: 'row', gap: S.sm },
-  item: { flex: 1, alignItems: 'center', gap: 1, minWidth: 0 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: S.lg },
+  stats: { flex: 1, minWidth: 0, gap: 6 },
+  value: { flexDirection: 'row', alignItems: 'baseline', gap: 5 },
+  caption: { flexShrink: 1 },
+  chevron: { position: 'absolute', top: S.lg, right: S.md },
 });

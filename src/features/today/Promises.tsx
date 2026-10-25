@@ -14,6 +14,14 @@ import { promiseColor, promiseIcon } from './visuals';
 
 const openSettings = () => router.push('/settings');
 
+/** Set one promise kept or not. The one that closes the ring gets the success haptic. */
+export function setPromise(dayKey: string, promises: string[], kept: Record<string, boolean>, p: string, next: boolean) {
+  if (!!kept[p] === next) return;
+  const completes = next && promises.every((x) => x === p || kept[x]);
+  actions.togglePromise(dayKey, p);
+  if (completes) haptic.success();
+}
+
 export function Promises({ dayKey, promises, kept }: { dayKey: string; promises: string[]; kept: Record<string, boolean> }) {
   if (!promises.length) {
     return (
@@ -31,13 +39,6 @@ export function Promises({ dayKey, promises, kept }: { dayKey: string; promises:
   const n = promises.filter((p) => kept[p]).length;
   const all = n === promises.length;
 
-  const toggle = (p: string, next: boolean) => {
-    if (!!kept[p] === next) return;
-    const completes = next && promises.every((x) => x === p || kept[x]);
-    actions.togglePromise(dayKey, p);
-    if (completes) haptic.success();
-  };
-
   return (
     <Section title="Promises" action={{ label: 'Edit', onPress: openSettings }}>
       <Group footer={all ? `All ${n} kept. Ring closed.` : `${n} of ${promises.length} kept`}>
@@ -48,7 +49,7 @@ export function Promises({ dayKey, promises, kept }: { dayKey: string; promises:
             iconColor={promiseColor(i)}
             title={p}
             value={!!kept[p]}
-            onChange={(v) => toggle(p, v)}
+            onChange={(v) => setPromise(dayKey, promises, kept, p, v)}
           />
         ))}
       </Group>

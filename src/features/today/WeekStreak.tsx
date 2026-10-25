@@ -1,6 +1,6 @@
 /**
- * Streak: the big number, freezes in the bank, and this week Mon–Sun.
- * Missed days are a neutral grey dot, never red.
+ * Streak: an evolving flame and the big number, freezes in the bank, and this week Mon–Sun.
+ * The flame turns blue at 21 days and purple at 66. Missed days are a neutral grey dot, never red.
  */
 import { router } from 'expo-router';
 import { Flame, Moon, Snowflake } from 'lucide-react-native';
@@ -11,6 +11,8 @@ import { C, S, SYS, tint } from '@/constants/theme';
 import type { StreakDay } from '@/lib/engage';
 import { haptic } from '@/lib/haptics';
 import { Card, Divider, MiniRing, Num, Pressy, Section, Txt } from '@/ui';
+
+import { StreakFlame, flameStage } from './StreakFlame';
 
 const LETTERS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 const MARK = 34;
@@ -28,14 +30,23 @@ export function WeekStreak({
 }) {
   const [info, setInfo] = useState(false);
   const on = streak > 0;
+  const stage = flameStage(streak);
+  const next = stage.next;
+  const hint = !on
+    ? 'Check in or keep a promise to start one.'
+    : next
+      ? `${next.at - streak} ${next.at - streak === 1 ? 'day' : 'days'} to a ${next.name} flame`
+      : 'Purple flame. It’s a habit now.';
 
   return (
     <Section title="Streak" action={{ label: 'Medals', onPress: () => router.push('/awards') }}>
       <Card padding={S.lg} style={{ gap: S.lg }}>
         <View style={styles.top}>
           <View style={styles.big}>
-            <Flame size={30} color={on ? SYS.orange : C.label3} fill={on ? SYS.orange : 'transparent'} strokeWidth={2} />
-            <Num size={44} weight="800" color={on ? C.tint : C.label3}>
+            <View style={{ marginBottom: 6 }}>
+              <StreakFlame streak={streak} size={40} />
+            </View>
+            <Num size={44} weight="800" color={on ? stage.text : C.label3}>
               {streak}
             </Num>
             <Txt v="subhead" color={C.label2} style={{ marginBottom: 6 }}>
@@ -59,15 +70,9 @@ export function WeekStreak({
           </Pressy>
         </View>
 
-        {info ? (
-          <Txt v="footnote" color={C.label2} style={{ marginTop: -S.sm }}>
-            A freeze protects your streak if you miss a day. You earn one every 7 days.
-          </Txt>
-        ) : !on ? (
-          <Txt v="footnote" color={C.label2} style={{ marginTop: -S.sm }}>
-            Check in or keep a promise to start one.
-          </Txt>
-        ) : null}
+        <Txt v="footnote" color={C.label2} style={{ marginTop: -S.sm }}>
+          {info ? 'A freeze protects your streak if you miss a day. You earn one every 7 days.' : hint}
+        </Txt>
 
         <Divider />
 
@@ -81,7 +86,7 @@ export function WeekStreak({
                     {LETTERS[d.date.getDay()]}
                   </Txt>
                 </View>
-                <DayMark day={d} />
+                <DayMark day={d} flame={stage.outer} />
               </View>
             );
           })}
@@ -95,12 +100,12 @@ function describe(s: StreakDay['state']) {
   return s === 'done' ? 'showed up' : s === 'frozen' ? 'protected by a freeze' : s === 'rest' ? 'rest day' : s === 'today' ? 'today' : s === 'future' ? 'coming up' : 'missed';
 }
 
-function DayMark({ day }: { day: StreakDay }) {
+function DayMark({ day, flame }: { day: StreakDay; flame: string }) {
   switch (day.state) {
     case 'done':
       return (
         <MiniRing value={Math.min(1, day.rings.promises)} size={MARK} stroke={4.5}>
-          <Flame size={13} color={SYS.orange} fill={SYS.orange} strokeWidth={2} />
+          <Flame size={13} color={flame} fill={flame} strokeWidth={2} />
         </MiniRing>
       );
     case 'today':

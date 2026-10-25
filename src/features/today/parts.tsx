@@ -83,7 +83,46 @@ export function OptionTile({
   );
 }
 
+/**
+ * An inset grouped list for inside a sheet: the kit's Group is translucent for screens, but a
+ * sheet needs a solid surface one step lighter. Children are ListRow / ToggleRow; separators are drawn.
+ */
+export function SheetRows({ children, inset = 58 }: { children: React.ReactNode; inset?: number }) {
+  const rows = React.Children.toArray(children).filter(Boolean);
+  return (
+    <View style={styles.rows}>
+      {rows.map((r, i) => (
+        <React.Fragment key={i}>
+          {i > 0 ? <View style={[styles.rule, { marginLeft: inset }]} /> : null}
+          {r}
+        </React.Fragment>
+      ))}
+    </View>
+  );
+}
+
+/** A section title inside a sheet: a coloured dot and name, and a quiet status on the right. */
+export function SheetHeading({ title, color, status }: { title: string; color: string; status?: string }) {
+  return (
+    <View style={styles.heading}>
+      <View style={[styles.dot, { backgroundColor: color }]} />
+      <Txt v="headline" color={color} style={{ flex: 1 }} numberOfLines={1}>
+        {title}
+      </Txt>
+      {status ? (
+        <Txt v="subhead" color={C.label2} numberOfLines={1}>
+          {status}
+        </Txt>
+      ) : null}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  rows: { backgroundColor: C.card2, borderRadius: R.card - 4, overflow: 'hidden' },
+  rule: { height: StyleSheet.hairlineWidth, backgroundColor: C.separator },
+  heading: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 4 },
+  dot: { width: 10, height: 10, borderRadius: 5 },
   sheetCard: { backgroundColor: C.card2, borderRadius: R.card - 4, padding: S.lg, gap: S.md, overflow: 'hidden' },
   head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: S.md, minHeight: 24 },
   cell: { flex: 1, minWidth: 0 },
