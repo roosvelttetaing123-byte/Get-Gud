@@ -55,6 +55,14 @@
           set();
           setTimeout(set, 250);
         });
+        // Focus rings only after the keyboard is used: a sheet or celebration that moves focus
+        // on its own shouldn't draw a ring on a phone.
+        window.addEventListener('keydown', function (e) {
+          if (e.key === 'Tab' || e.key.indexOf('Arrow') === 0) root.setAttribute('data-kb', '');
+        }, true);
+        window.addEventListener('pointerdown', function () {
+          root.removeAttribute('data-kb');
+        }, true);
       })();
     </script>
     <style id="expo-reset">
@@ -123,6 +131,9 @@
       :focus-visible {
         outline: 2px solid #0a84ff;
         outline-offset: 2px;
+      }
+      :root:not([data-kb]) :focus-visible {
+        outline: none;
       }
       /* Text fields draw their own (gold) focus border. */
       input:focus-visible,

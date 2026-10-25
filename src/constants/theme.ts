@@ -37,6 +37,8 @@ export const C = {
   // surfaces
   bg: '#000000', // systemGroupedBackground (dark)
   card: '#1C1C1E', // secondarySystemGroupedBackground
+  /** Cards and groups: looks exactly like `card` over black, and lets a living-colour glow tint through. */
+  cardTranslucent: 'rgba(34,34,37,0.82)',
   card2: '#2C2C2E', // tertiarySystemGroupedBackground / elevated rows
   fill: 'rgba(120,120,128,0.36)', // systemFill
   fill2: 'rgba(120,120,128,0.32)', // secondarySystemFill
@@ -79,6 +81,16 @@ export const VALENCE = [
   { label: 'Pleasant', color: '#FFB340' },
   { label: 'Very pleasant', color: '#FF9230' },
 ] as const;
+
+/**
+ * Screen backgrounds (Settings > Background). "Living colour" glows come from SYS colours
+ * (see ui/glow.ts); Midnight is a calm navy wash; True black is plain C.bg.
+ */
+export const BACKDROP = {
+  midnight: { top: '#101A3F', mid: '#070B1C', bottom: '#000000' },
+  /** Moonlight glow on Today at night. */
+  moon: '#CFE0FF',
+} as const;
 
 /** Soft translucent tints for backgrounds behind a colour (e.g. icon wells, chips). */
 export const tint = (hex: string, a = 0.18) => {

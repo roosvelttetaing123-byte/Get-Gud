@@ -1,5 +1,5 @@
 /**
- * Header accessory (a Contacts-style monogram that opens Settings) and the quiet "why" card.
+ * Header accessory (a Contacts-style monogram that opens Settings) and the quiet "why" quote.
  */
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
@@ -9,7 +9,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { C, S, SYS } from '@/constants/theme';
 import { haptic } from '@/lib/haptics';
-import { Card, IconButton, Pressy, Txt } from '@/ui';
+import { IconButton, Pressy, Txt } from '@/ui';
 
 const openSettings = () => router.push('/settings');
 
@@ -44,24 +44,22 @@ export function ProfileButton({ name }: { name: string }) {
   );
 }
 
-/** The reason he's doing this, at the bottom of Today. Quiet on purpose. */
-export function WhyCard({ why }: { why: string }) {
+/** The reason he's doing this, at the very bottom of Today: a quote on the background, not another card. */
+export function WhyQuote({ why }: { why: string }) {
   return (
-    <Card padding={S.lg} style={{ gap: S.sm }}>
-      <View style={styles.whyHead}>
-        <Quote size={16} color={C.tint} fill={C.tint} strokeWidth={1.5} />
-        <Txt v="footnote" weight="600" color={C.label2}>
-          Your why
-        </Txt>
-      </View>
-      <Txt v="callout" color={C.label}>
+    <View style={styles.why} accessible accessibilityLabel={`Your why: ${why}`}>
+      <Quote size={18} color={C.tint} fill={C.tint} strokeWidth={1.5} />
+      <Txt v="callout" color={C.label} align="center">
         {why}
       </Txt>
-    </Card>
+      <Txt v="footnote" weight="600" color={C.label3}>
+        Your why
+      </Txt>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   avatar: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
-  whyHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  why: { alignItems: 'center', gap: S.sm, paddingHorizontal: S.xxl, paddingTop: S.sm },
 });

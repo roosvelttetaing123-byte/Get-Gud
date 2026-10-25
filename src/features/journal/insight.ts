@@ -192,21 +192,23 @@ export function pickHighlight(st: JournalStats): Highlight | null {
 
 /* ---------- chart series ---------- */
 
-export type Range = 'week' | 'month';
+/** Rolling windows ending today, like Health: never empty just because it's Monday. */
+export type Range = '7d' | '30d';
 
 export interface DayBar {
   key: string;
-  /** Under the bar: weekday letter (week) or a date on weekly ticks (month). */
+  /** Under the bar: weekday letter (7 days) or a date on weekly ticks (30 days). */
   tick: string;
-  /** For the tap label and screen readers: "Tue 21 Oct". */
+  /** For the header while you read a day: "Today", "Fri 23 Oct". */
   title: string;
-  /** "Tuesday 21 October" */
+  /** "Friday 23 October" */
   spoken: string;
   netR: number;
   closed: number;
   wins: number;
+  /** Times you walked away that day. */
+  skipped: number;
   isToday: boolean;
-  future: boolean;
 }
 
 export interface Series {
@@ -217,23 +219,24 @@ export interface Series {
   title: string;
 }
 
-/** Mon–Sun of the current week, or the last 30 days ending today. Trades count on the day they were entered. */
+/** The last 7 or 30 days ending today. Trades count on the day they were entered. */
 export function chartSeries(trades: Trade[], range: Range, now: number): Series {
   const today = new Date(now);
   const todayKey = dayKey(today);
-  const start = new Date(today);
-  const n = range === 'week' ? 7 : 30;
-  if (range === 'week') start.setDate(today.getDate() - ((today.getDay() + 6) % 7));
-  else start.setDate(today.getDate() - (n - 1));
+  const n = range === '7d' ? 7 : 30;
+  const start = new Date(today.getFullYear(), today.getMonth(), today.getDate() - (n - 1), 12);
 
-  const byDay = new Map<string, { r: number; closed: number; wins: number }>();
+  const byDay = new Map<string, { r: number; closed: number; wins: number; skipped: number }>();
   for (const t of trades) {
-    if (!t.taken || !t.result) continue;
+    if (t.taken && !t.result) continue;
     const k = dayKey(t.ts);
-    const d = byDay.get(k) ?? { r: 0, closed: 0, wins: 0 };
-    d.r += t.r ?? 0;
-    d.closed++;
-    if (t.result === 'win') d.wins++;
+    const d = byDay.get(k) ?? { r: 0, closed: 0, wins: 0, skipped: 0 };
+    if (!t.taken) d.skipped++;
+    else {
+      d.r += t.r ?? 0;
+      d.closed++;
+      if (t.result === 'win') d.wins++;
+    }
     byDay.set(k, d);
   }
 
@@ -243,19 +246,19 @@ export function chartSeries(trades: Trade[], range: Range, now: number): Series 
     d.setDate(start.getDate() + i);
     const k = dayKey(d);
     const v = byDay.get(k);
-    // Month ticks fall weekly, counted back from today so today always has one.
-    const tick =
-      range === 'week' ? WEEKDAYS[d.getDay()][0] : (n - 1 - i) % 7 === 0 ? String(d.getDate()) : '';
+    // 30-day ticks fall weekly, counted back from today so today always has one.
+    const tick = range === '7d' ? WEEKDAYS[d.getDay()][0] : (n - 1 - i) % 7 === 0 ? String(d.getDate()) : '';
+    const isToday = k === todayKey;
     bars.push({
       key: k,
       tick,
-      title: `${WEEKDAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}`,
+      title: isToday ? 'Today' : `${WEEKDAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}`,
       spoken: `${WEEKDAYS_LONG[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}`,
       netR: round(v?.r ?? 0),
       closed: v?.closed ?? 0,
       wins: v?.wins ?? 0,
-      isToday: k === todayKey,
-      future: k > todayKey,
+      skipped: v?.skipped ?? 0,
+      isToday,
     });
   }
 
@@ -266,6 +269,14 @@ export function chartSeries(trades: Trade[], range: Range, now: number): Series 
     netR: round(bars.reduce((a, b) => a + b.netR, 0)),
     closed,
     winRate: closed ? wins / closed : 0,
-    title: range === 'week' ? 'This week' : 'Last 30 days',
+    title: range === '7d' ? 'Last 7 days' : 'Last 30 days',
   };
+}
+
+/** The line under the big number: for the whole range, or for the day you're reading. */
+export function barLine(b: Pick<DayBar, 'closed' | 'wins' | 'skipped'>): string {
+  const walked = b.skipped ? `walked away ${times(b.skipped)}` : '';
+  if (!b.closed) return walked ? `No trades · ${walked}` : 'No trades';
+  const base = `${pct(b.wins / b.closed)} win rate · ${count(b.closed, 'trade')}`;
+  return walked ? `${base} · ${walked}` : base;
 }

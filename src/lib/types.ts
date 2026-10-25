@@ -96,6 +96,8 @@ export interface Settings {
   healthImport: boolean; // imported from Apple Health at least once
   healthGist: string; // secret gist id the Shortcut writes to ('' = off)
   onboarded: boolean;
+  /** Screen background: 'living' colour glows, 'midnight' navy, or 'black'. Unknown values mean 'living'. */
+  background: string;
 }
 
 export interface State {
@@ -112,4 +114,5 @@ export interface State {
   seenAwards: string[]; // award ids already celebrated
   lastReconciled?: string; // dayKey when streak freezes were last applied
   freezeMark?: number; // 7-day blocks already credited with a freeze
+  reviewSeen?: string; // Monday key of the last week in review watched (hides the "Your week" card)
 }

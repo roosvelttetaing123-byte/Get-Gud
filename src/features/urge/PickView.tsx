@@ -61,7 +61,7 @@ export function PickView({
   for (let i = 0; i < URGE_KINDS.length; i += 2) rows.push(URGE_KINDS.slice(i, i + 2));
 
   return (
-    <Screen title="Urge" caption="Something's pulling at you">
+    <Screen backdrop="urge" title="Urge" caption="Something's pulling at you">
       <Section title="What's the urge?">
         <View accessibilityRole="radiogroup" style={{ gap: S.md }}>
           {rows.map((pair) => (

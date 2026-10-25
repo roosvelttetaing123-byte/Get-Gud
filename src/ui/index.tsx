@@ -25,10 +25,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { C, FONT, R, S, TAB_BAR_HEIGHT, TYPE, tint, type TypeStyle, type Weight } from '@/constants/theme';
 import { haptic } from '@/lib/haptics';
 
+import { Backdrop } from './Backdrop';
+import type { BackdropTone } from './glow';
 import { Pressy, useSpringValue } from './motion';
 import { HapticTarget, NativeSwitch } from './NativeSwitch';
 
 export { Pressy, useReduceMotion, useSpringValue } from './motion';
+export { Backdrop } from './Backdrop';
+export type { BackdropTone, BackgroundStyle } from './glow';
 export { HapticTarget, NativeSwitch } from './NativeSwitch';
 export type { LucideIcon };
 
@@ -132,6 +136,7 @@ export function Screen({
   modal = false,
   gap = S.section,
   contentStyle,
+  backdrop = 'none',
 }: {
   title?: string;
   caption?: string;
@@ -142,6 +147,8 @@ export function Screen({
   modal?: boolean;
   gap?: number;
   contentStyle?: StyleProp<ViewStyle>;
+  /** Which colour glows behind this screen (Settings > Background decides the style). */
+  backdrop?: BackdropTone;
 }) {
   const insets = useSafeAreaInsets();
   const [scrolled, setScrolled] = useState(false);
@@ -172,6 +179,7 @@ export function Screen({
   if (!scroll) {
     return (
       <View style={[styles.screen, { paddingTop: top, paddingBottom: bottom }]}>
+        <Backdrop tone={backdrop} />
         <View style={[styles.column, { gap }, contentStyle]}>{content}</View>
       </View>
     );
@@ -179,6 +187,7 @@ export function Screen({
 
   return (
     <View style={styles.screen}>
+      <Backdrop tone={backdrop} />
       <ScrollView
         style={StyleSheet.absoluteFill}
         contentContainerStyle={[styles.column, { paddingTop: top, paddingBottom: bottom, gap }, contentStyle]}
@@ -817,9 +826,9 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    backgroundColor: 'rgba(0,0,0,0.82)',
+    backgroundColor: 'rgba(0,0,0,0.62)',
     ...(Platform.OS === 'web'
-      ? ({ backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' } as object)
+      ? ({ backdropFilter: 'blur(18px) saturate(1.4)', WebkitBackdropFilter: 'blur(18px) saturate(1.4)' } as object)
       : null),
   },
   sectionHead: {
@@ -828,8 +837,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 4,
   },
-  card: { backgroundColor: C.card, borderRadius: R.card, gap: S.md, overflow: 'hidden' },
-  group: { backgroundColor: C.card, borderRadius: R.card, overflow: 'hidden' },
+  card: { backgroundColor: C.cardTranslucent, borderRadius: R.card, gap: S.md, overflow: 'hidden' },
+  group: { backgroundColor: C.cardTranslucent, borderRadius: R.card, overflow: 'hidden' },
   listRow: { flexDirection: 'row', alignItems: 'center', gap: S.md, paddingHorizontal: S.lg, minHeight: 48 },
   iconSquare: { alignItems: 'center', justifyContent: 'center' },
   button: { borderRadius: R.pill, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 },

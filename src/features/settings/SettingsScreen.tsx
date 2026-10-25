@@ -29,6 +29,7 @@ import { actions, useStore, type Settings } from '@/lib/store';
 import { Group, ListRow, Screen, Txt } from '@/ui';
 
 import { Avatar } from './Avatar';
+import { BackgroundPicker } from './BackgroundPicker';
 import { useConfirm } from './confirm';
 import { ListEditorSheet } from './ListEditorSheet';
 import { DoneButton, ValueStepper } from './parts';
@@ -89,7 +90,7 @@ export function SettingsScreen() {
 
   return (
     <>
-      <Screen modal title="Settings" accessory={<DoneButton onPress={close} />}>
+      <Screen modal backdrop="settings" title="Settings" accessory={<DoneButton onPress={close} />}>
         <Group>
           <ProfileRow
             name={settings.name}
@@ -100,6 +101,16 @@ export function SettingsScreen() {
             }}
           />
         </Group>
+
+        <View style={{ gap: 6 }}>
+          <Txt v="footnote" color={C.label2} style={{ paddingHorizontal: S.lg }}>
+            Background
+          </Txt>
+          <BackgroundPicker value={settings.background} />
+          <Txt v="footnote" color={C.label2} style={{ paddingHorizontal: S.lg }}>
+            Living colour follows the sun on Today and gives every tab its own glow.
+          </Txt>
+        </View>
 
         <Group header="Trading" footer="The gate uses these to say Clear, Wait or Stop.">
           <ListRow

@@ -7,7 +7,7 @@ Get Gud is a discipline and emotion-control app for RV, a funded gold (XAU/USD) 
 ## The six rules
 
 1. **One hero, one primary action per screen.** Everything else is progressively disclosed. Each screen should answer three questions: where am I, how am I doing, what do I do next.
-2. **Content is opaque, navigation is glass.** Cards are `C.card` (#1C1C1E) on true black `C.bg`. Glass/blur goes only on the floating tab bar, sheets, and floating buttons over media. Never put glass on content cards.
+2. **Content sits on living colour; navigation is glass.** Every tab has a soft colour glow behind it (`Screen backdrop="…"`, see Backgrounds below). Cards and groups use `C.cardTranslucent`, which looks exactly like #1C1C1E over black and lets the glow tint through. Don't blur content cards; blur (glass) goes only on the floating tab bar, sheets and floating buttons over media. Solid surfaces inside sheets still use `C.card` / `C.card2`.
 3. **Colour makes it lively, with meaning.**
    - Rings: Promises orange→yellow, Mind indigo→violet, Discipline mint→green.
    - Coloured icon squares on every list row, like iOS Settings.
@@ -35,7 +35,7 @@ Get Gud is a discipline and emotion-control app for RV, a funded gold (XAU/USD) 
   - `Txt` takes `v` (a TYPE style), `color`, `weight`, `rounded`, `tabular`, `align` and `numberOfLines`.
   - `Num` is a big SF Rounded tabular number: `size`, `weight`, `color`.
 - **Layout:**
-  - `Screen` takes `title` (a large left-aligned title), `caption` (a small line above it), `accessory` (right side, e.g. `IconButton`), `scroll`, `modal` and `gap`. It handles safe areas, the floating tab bar and the scroll-edge effect.
+  - `Screen` takes `title` (a large left-aligned title), `caption` (a small line above it), `accessory` (right side, e.g. `IconButton`), `scroll`, `modal`, `gap` and `backdrop` (`today | journal | urge | sleep | awards | settings | gate | none`). It handles safe areas, the floating tab bar, the scroll-edge effect and the background glow.
   - `Section` takes `title` (Title 3), `action={{label,onPress}}` and `footer`.
   - `Card` takes `onPress` (springy) and `padding`. Also `Row`, `Divider`.
 - **Lists:** `Group` (an inset grouped list with `header`/`footer`) containing `ListRow`s. A `ListRow` takes `icon`, `iconColor`, `title`, `subtitle`, `value`, `chevron`, `accessory`, `onPress` and `destructive`. `ToggleRow` is a ListRow with a **real iOS switch**: a tap anywhere toggles it and plays the native haptic tick on iPhone. Also `IconSquare` and `IconWell`.
@@ -72,21 +72,35 @@ If the kit lacks something you need, build it inside your own feature folder in 
 - Others: `ring-trophy`, `urge-orb`, `urge-orb-glow`, `gate-shield`, and `mood-1` … `mood-7` (the State of Mind shapes, purple and spiky → blue pebble → orange bloom).
 - Show them with `expo-image` `<Image source={require('@/assets/3d/x.webp')} contentFit="contain" />`. They are hero and reward objects; don't use them as decoration everywhere.
 
+## Backgrounds (Settings > Background)
+
+- **Living colour** (default): `src/ui/glow.ts` + `Backdrop`. Today is a sky that follows the clock (indigo night, peach/pink dawn, blue day, gold late afternoon, pink/purple dusk) with a sun that travels left to right across the top, a moon and stars at night, and this morning's mood colour low behind the cards. Other tabs glow in their tab colour: Journal blue, Urge cyan, Sleep indigo with stars, Medals gold, Settings graphite.
+- **Midnight**: a calm navy wash on every screen. **True black**: plain black (OLED).
+- Glows drift slowly (transform-only CSS on web, static on native), stop for reduce motion, and carry film grain against banding.
+
+## Touch and play
+
+- Things should react to a finger: drag to spin, scrub charts, swipe decks, poke shapes. Every drag follows the finger 1:1, then settles with a spring (momentum where it makes sense). Snap points get a haptic tick (`haptic.tap()`).
+- On web, every draggable surface needs `touchAction: 'none'` (or `pan-y` for horizontal drags inside a vertical scroll) so iOS Safari doesn't scroll the page instead. Use `PanResponder` or Pointer Events; test with Playwright touch/mouse drags.
+- Always give a non-drag path for the same information (tap, a button, or an accessibility label), and honour reduce motion (no momentum or idle animation).
+
 ## Pattern per screen (from Apple first-party apps)
 
 - **Today = Fitness Summary.**
-  - Rings are the hero.
-  - One primary action by stage: "Check in" (morning sheet, 4 taps: mood slider, energy, sleep, intention), "Close the day" (evening sheet, 3 taps), or a calm done state.
-  - Then promises as switch rows, the week strip, and the streak with freezes.
+  - The hero is a compact card: rings at the left, the three numbers at the right. Tap for "Today's rings" (what's left, with promise switches); swipe the rings to spin them.
+  - One primary action by stage: "Check in" (morning sheet, 4 taps: mood slider, energy, sleep, intention), "Check before you trade" with the day's trades and trade window under it, "Close the day" (evening sheet, 3 taps), or a calm done state.
+  - Then "Your day" (a timeline strip from the sleep engine), the Week in review card (Sunday evening until watched), one coach card, promises as switch rows, the streak with freezes, and the why as a quiet quote.
 - **Gate = Health State of Mind, then a checklist, then a Weather-style verdict.**
   - Step 1: a slider over the 7 mood shapes, colour shifting purple→blue→orange.
   - Step 2: name the feeling with chips, plus "what's it about" associations.
   - Step 3: rules as switches.
   - Step 4: a full-bleed verdict with one action. A Wait shows a countdown ring.
   - Under 30 seconds in total.
-- **Journal = Health Highlights plus Screen Time charts.** One plain-English insight, a weekly R bar chart coloured by verdict, "What each feeling costs" sorted worst first, then entries.
+- **Journal = Health Highlights plus Screen Time charts.** One plain-English insight, a 7 / 30 day R chart you can scrub, "Your days" (mood calendar with a day sheet), one card with three lenses (feelings, tiredness, rules), then filterable entries. The Week in review story lives here too (Apple Music Replay style).
 - **Urge = Breathe plus one sec.** Name it with big chips, rate it with a vertical slider, then a breathing bloom (4s in / 6s out, 1/3/5 min). Re-rate and show the drop ("8 to 4").
-- **Settings = iOS Settings.** Inset grouped lists with coloured icon squares, a chevron, and switches.
+- **Sleep = Health Sleep plus the iOS Clock bedtime dial.** Debt on the night sky, scrubbable nights, a 24-hour body-clock dial you turn, trade windows, habits, nights and settings.
+- **Medals = Fitness awards.** Live 3D (`features/medal3d`): drag, flick, double-tap to flip, tilt to look. The pre-rendered WebP shows first and stays wherever WebGL can't run.
+- **Settings = iOS Settings.** Inset grouped lists with coloured icon squares, a chevron, and switches. Background picker at the top.
 
 ## Visual QA (required)
 

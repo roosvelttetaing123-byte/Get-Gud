@@ -2,20 +2,19 @@
  * Morning check-in: four short cards on one scroll (mood, energy, sleep, intention).
  * About 30 seconds. Pre-fills from today's check-in when editing.
  */
-import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Battery, BatteryFull, BatteryLow, BatteryMedium, Zap, type LucideIcon } from 'lucide-react-native';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from 'react-native-reanimated';
 import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
 
-import { C, S, SPRING, SYS, VALENCE } from '@/constants/theme';
+import { C, S, SYS, VALENCE } from '@/constants/theme';
 import { haptic } from '@/lib/haptics';
 import { sleepSummary } from '@/lib/sleep';
 import { actions, dayKey, getState, type CheckIn } from '@/lib/store';
-import { Button, Field, Num, Sheet, Stepper, Txt, useReduceMotion } from '@/ui';
+import { Button, Field, Num, Sheet, Stepper, Txt } from '@/ui';
 
+import { JellyShape } from './JellyShape';
 import { MoodSlider, VALENCE_COLORS } from './MoodSlider';
 import { OptionTile, SheetCard } from './parts';
 import { along, moodImage } from './visuals';
@@ -145,7 +144,10 @@ function CheckInForm({ checkin, onDone }: { checkin?: CheckIn; onDone: () => voi
   );
 }
 
-/** Health State of Mind: the shape, its name, and the slider. The card takes the mood's colour. */
+/**
+ * Health State of Mind: the shape, its name, and the slider. The card takes the mood's colour.
+ * The shape is jelly: poke it or pull it and it wobbles back (and it wobbles when the mood changes).
+ */
 function MoodCard({
   valence,
   pos,
@@ -163,17 +165,6 @@ function MoodCard({
   const top = along(VALENCE_COLORS, t, 0.22);
   const bottom = along(VALENCE_COLORS, t, 0.06);
 
-  const reduce = useReduceMotion();
-  const pop = useSharedValue(1);
-  const shown = useRef(valence);
-  useEffect(() => {
-    // Pop the shape when it changes (not when the sheet first opens).
-    if (shown.current === valence) return;
-    shown.current = valence;
-    if (!reduce) pop.set(withSequence(withTiming(0.9, { duration: 70 }), withSpring(1, SPRING.bouncy)));
-  }, [valence, reduce, pop]);
-  const popStyle = useAnimatedStyle(() => ({ transform: [{ scale: pop.get() }] }));
-
   return (
     <SheetCard style={{ paddingBottom: S.lg }}>
       <LinearGradient colors={[top, bottom]} style={StyleSheet.absoluteFill} />
@@ -190,9 +181,7 @@ function MoodCard({
           </Defs>
           <Circle cx={GLOW / 2} cy={GLOW / 2} r={GLOW / 2} fill="url(#moodGlow)" />
         </Svg>
-        <Animated.View style={popStyle}>
-          <Image source={moodImage(valence)} style={styles.shape} contentFit="contain" transition={120} />
-        </Animated.View>
+        <JellyShape source={moodImage(valence)} size={SHAPE} kick={valence} label={`Mood shape: ${VALENCE[valence - 1].label}`} />
         <Num size={26} weight="700" style={{ textAlign: 'center' }}>
           {VALENCE[valence - 1].label}
         </Num>
@@ -206,5 +195,4 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', gap: S.sm },
   mood: { alignItems: 'center', gap: S.sm, paddingTop: S.xs, paddingBottom: S.xs },
   glow: { position: 'absolute', top: S.xs + SHAPE / 2 - GLOW / 2, left: '50%', marginLeft: -GLOW / 2 },
-  shape: { width: SHAPE, height: SHAPE },
 });

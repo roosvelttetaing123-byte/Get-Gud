@@ -1,6 +1,6 @@
 /**
- * Medals screen pieces, modelled on Apple Fitness Awards: a hero medal on black with a soft glow,
- * a streak strip, a 3-column grid and a detail sheet.
+ * Medals screen pieces, modelled on Apple Fitness Awards: a live hero medal on black with a soft glow,
+ * a streak strip and a 3-column grid. Tapping a medal opens the full-screen viewer (Viewer.tsx).
  */
 import { Image } from 'expo-image';
 import { Flame, Snowflake } from 'lucide-react-native';
@@ -9,10 +9,11 @@ import { StyleSheet, View, useWindowDimensions } from 'react-native';
 import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
 
 import { C, RING, S } from '@/constants/theme';
+import { Medal3D } from '@/features/medal3d';
 import { LOCKED_MEDAL } from '@/lib/engage';
-import { Card, Medal, Num, ProgressRing, Row, Sheet, Txt, useSpringValue } from '@/ui';
+import { Card, Medal, Num, ProgressRing, Row, Txt, useSpringValue } from '@/ui';
 
-import { earnedLine, glowOf, lockedLine, pct, type MedalView, type StreakInfo } from './model';
+import { backOf, earnedLine, glowOf, lockedLine, pct, type MedalView, type StreakInfo } from './model';
 
 /* ---------- glow ---------- */
 
@@ -37,12 +38,19 @@ export function Glow({ size, color, strength = 0.42 }: { size: number; color: st
 
 const HERO = 200;
 
-/** The latest medal, big; or, before the first one, the next medal locked with its progress. */
-export function HeroMedal({ view, now, onPress }: { view: MedalView; now: Date; onPress: () => void }) {
+/**
+ * The latest medal, big and live: drag to spin it, flick it, double-tap to turn it over.
+ * Before the first medal: the next one, locked, inside its progress ring.
+ */
+export function HeroMedal({ view, now }: { view: MedalView; now: Date }) {
   const pop = useSpringValue(1, 'bouncy', 0.7);
   const { award, earned } = view;
   const p = view.progress ?? 0;
   const stage = HERO + 120;
+  const back = backOf(view, now);
+  const label = earned
+    ? `${award.title} medal, ${earnedLine(view, now).toLowerCase()}. Drag to spin, double tap to turn it over.`
+    : `${award.title}, ${lockedLine(view).toLowerCase()}. Drag to spin.`;
   return (
     <View style={styles.hero}>
       <Txt v="subhead" weight="600" color={earned ? C.tint : C.label2}>
@@ -53,10 +61,10 @@ export function HeroMedal({ view, now, onPress }: { view: MedalView; now: Date; 
           <Glow size={stage} color={earned ? glowOf(award.id) : C.indigo} strength={earned ? 0.42 : 0.2} />
         </View>
         {earned ? (
-          <Medal image={award.image} size={HERO} label={award.title} onPress={onPress} />
+          <Medal3D id={award.id} image={award.image} size={HERO} back={back} label={label} intro="wobble" scroll />
         ) : (
           <ProgressRing value={p} size={HERO + 16} stroke={7} from={C.orange} to={C.yellow} track={C.fill3}>
-            <Medal image={LOCKED_MEDAL} size={HERO - 36} label={`${award.title}, ${pct(p)} there`} onPress={onPress} />
+            <Medal3D id={award.id} locked image={award.image} size={HERO - 36} back={back} label={label} intro="wobble" scroll />
           </ProgressRing>
         )}
       </View>
@@ -70,6 +78,10 @@ export function HeroMedal({ view, now, onPress }: { view: MedalView; now: Date; 
       </View>
       <Txt v="subhead" color={C.label2} align="center" style={{ maxWidth: 300 }}>
         {award.detail}
+      </Txt>
+      {/* It's a real 3D medal now; say so once, quietly. */}
+      <Txt v="footnote" color={C.label3} align="center">
+        {earned ? 'Drag to spin. Double-tap to flip.' : 'Drag to spin.'}
       </Txt>
     </View>
   );
@@ -210,64 +222,6 @@ function MedalCell({
           </Txt>
         </Row>
       ) : null}
-    </View>
-  );
-}
-
-/* ---------- detail sheet ---------- */
-
-export function MedalSheet({
-  view,
-  section,
-  visible,
-  now,
-  onClose,
-}: {
-  view?: MedalView;
-  section?: string;
-  visible: boolean;
-  now: Date;
-  onClose: () => void;
-}) {
-  const size = 176;
-  return (
-    <Sheet visible={visible && !!view} onClose={onClose} title={section ?? 'Medal'} detent="medium">
-      {view ? <SheetBody view={view} now={now} size={size} /> : <View />}
-    </Sheet>
-  );
-}
-
-function SheetBody({ view, now, size }: { view: MedalView; now: Date; size: number }) {
-  const { award, earned } = view;
-  const p = view.progress;
-  const pop = useSpringValue(1, 'bouncy', 0.8);
-  return (
-    <View style={{ alignItems: 'center', gap: S.lg, paddingTop: S.xs }}>
-      <View style={[styles.stage, { width: size + 80, height: size + 16, transform: [{ scale: pop }] }]}>
-        <View style={{ position: 'absolute', left: 0, top: -32, width: size + 80, height: size + 80 }}>
-          <Glow size={size + 80} color={earned ? glowOf(award.id) : C.indigo} strength={earned ? 0.4 : 0.16} />
-        </View>
-        {earned ? (
-          <Medal image={award.image} size={size} label={award.title} />
-        ) : p !== undefined ? (
-          <ProgressRing value={p} size={size + 12} stroke={6} from={C.orange} to={C.yellow} track={C.fill3}>
-            <Medal image={LOCKED_MEDAL} size={size - 30} label={award.title} />
-          </ProgressRing>
-        ) : (
-          <Medal image={LOCKED_MEDAL} size={size} label={award.title} />
-        )}
-      </View>
-      <View style={{ gap: 6, alignItems: 'center' }}>
-        <Txt v="title1" align="center">
-          {award.title}
-        </Txt>
-        <Txt v="subhead" weight="600" color={earned ? C.label2 : C.tint} align="center">
-          {earned ? earnedLine(view, now) : lockedLine(view)}
-        </Txt>
-      </View>
-      <Txt v="body" color={C.label2} align="center" style={{ maxWidth: 320 }}>
-        {award.detail}
-      </Txt>
     </View>
   );
 }

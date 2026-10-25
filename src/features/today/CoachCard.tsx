@@ -3,63 +3,20 @@
  * learned about you, or a short "still learning" note. "What I've learned" opens the full list.
  */
 import { router } from 'expo-router';
-import {
-  BatteryLow,
-  BedDouble,
-  CalendarDays,
-  Coffee,
-  DoorOpen,
-  HeartPulse,
-  ListChecks,
-  MoonStar,
-  ShieldCheck,
-  Sparkles,
-  Sun,
-  TrendingUp,
-  Wind,
-  type LucideIcon,
-} from 'lucide-react-native';
+import { MoonStar, Sparkles } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { C, S, SYS, tint } from '@/constants/theme';
-import type { CoachArea, CoachIcon, Insight, Coach } from '@/lib/coach';
+import type { Coach, Insight } from '@/lib/coach';
 import { haptic } from '@/lib/haptics';
 import { actions } from '@/lib/store';
-import { Card, Divider, IconSquare, IconWell, ProgressRing, Sheet, Txt } from '@/ui';
+import { Card, Divider, IconSquare, IconWell, Pressy, ProgressRing, Sheet, Txt } from '@/ui';
 
-export const COACH_ICON: Record<CoachIcon, LucideIcon> = {
-  moon: MoonStar,
-  battery: BatteryLow,
-  coffee: Coffee,
-  bed: BedDouble,
-  shield: ShieldCheck,
-  sun: Sun,
-  wind: Wind,
-  heart: HeartPulse,
-  trend: TrendingUp,
-  check: ListChecks,
-  calendar: CalendarDays,
-  door: DoorOpen,
-  sparkles: Sparkles,
-};
+import { AREA_COLOR, COACH_ICON, TIP_COLOR } from './coachLook';
+import { LearnedDeck } from './LearnedDeck';
 
-/** One colour per life area, so the list reads at a glance. Never red: these are facts, not verdicts. */
-export const AREA_COLOR: Record<CoachArea, string> = {
-  sleep: SYS.indigo,
-  trading: SYS.green,
-  mood: SYS.purple,
-  urges: SYS.cyan,
-  habits: SYS.orange,
-};
-
-const TIP_COLOR: Partial<Record<CoachIcon, string>> = {
-  shield: SYS.green,
-  moon: SYS.indigo,
-  coffee: SYS.brown,
-  sun: SYS.yellow,
-  bed: SYS.purple,
-};
+export { AREA_COLOR, COACH_ICON } from './coachLook';
 
 function TextButton({ label, onPress, color = C.tint }: { label: string; onPress: () => void; color?: string }) {
   return (
@@ -124,28 +81,38 @@ export function CoachCard({ coach, dayKey }: { coach: Coach; dayKey: string }) {
           {footer}
         </Card>
       ) : card.kind === 'insight' ? (
-        <Card
-          style={{ gap: S.sm }}
-          onPress={card.route ? () => router.push(card.route!) : undefined}
-          accessibilityLabel={`${card.title}. ${card.body}`}>
-          <View style={styles.kicker}>
-            <Sparkles size={14} color={C.tint} strokeWidth={2.4} />
-            <Txt v="footnote" weight="600" color={C.tint}>
-              Learned about you
-            </Txt>
-          </View>
-          <View style={styles.head}>
-            <IconWell icon={COACH_ICON[card.icon]} color={AREA_COLOR[card.area]} size={44} />
-            <View style={{ flex: 1, gap: 2 }}>
-              <Txt v="headline">{card.title}</Txt>
-              <Txt v="subhead" color={C.label2}>
-                {card.body}
+        // Only the body is tappable: the footer holds its own buttons, and a button can't sit inside a button.
+        <Card style={{ gap: S.sm }}>
+          <Pressy
+            accessibilityRole={card.route ? 'button' : undefined}
+            accessibilityLabel={`${card.title}. ${card.body}`}
+            disabled={!card.route}
+            scaleTo={0.98}
+            onPress={() => {
+              if (!card.route) return;
+              haptic.tap();
+              router.push(card.route);
+            }}
+            style={{ gap: S.sm }}>
+            <View style={styles.kicker}>
+              <Sparkles size={14} color={C.tint} strokeWidth={2.4} />
+              <Txt v="footnote" weight="600" color={C.tint}>
+                Learned about you
               </Txt>
             </View>
-          </View>
-          <Txt v="caption1" color={C.label3} style={{ paddingLeft: 56 }}>
-            {card.evidence}
-          </Txt>
+            <View style={styles.head}>
+              <IconWell icon={COACH_ICON[card.icon]} color={AREA_COLOR[card.area]} size={44} />
+              <View style={{ flex: 1, gap: 2 }}>
+                <Txt v="headline">{card.title}</Txt>
+                <Txt v="subhead" color={C.label2}>
+                  {card.body}
+                </Txt>
+              </View>
+            </View>
+            <Txt v="caption1" color={C.label3} style={{ paddingLeft: 56 }}>
+              {card.evidence}
+            </Txt>
+          </Pressy>
           {footer}
         </Card>
       ) : (
@@ -171,38 +138,20 @@ export function CoachCard({ coach, dayKey }: { coach: Coach; dayKey: string }) {
 
 function LearnedSheet({ visible, onClose, learned }: { visible: boolean; onClose: () => void; learned: Insight[] }) {
   return (
-    <Sheet visible={visible} onClose={onClose} title="What I’ve learned" detent="large">
+    <Sheet visible={visible} onClose={onClose} title="What I’ve learned" detent="medium">
       <Txt v="subhead" color={C.label2}>
-        Patterns from your own data. A pattern only shows once there’s enough of it to trust, and it updates as you go.
-        Nothing leaves this phone.
+        Patterns from your own data, strongest first. Each one shows only once there’s enough to trust. Nothing leaves this
+        phone.
       </Txt>
-      {learned.map((i) => (
-        <Card
-          key={i.id}
-          style={{ gap: S.sm, backgroundColor: C.card2 }}
-          onPress={
-            i.route
-              ? () => {
-                  onClose();
-                  router.push(i.route!);
-                }
-              : undefined
-          }
-          accessibilityLabel={`${i.title}. ${i.body}`}>
-          <View style={styles.head}>
-            <IconSquare icon={COACH_ICON[i.icon]} color={AREA_COLOR[i.area]} />
-            <View style={{ flex: 1, gap: 2 }}>
-              <Txt v="headline">{i.title}</Txt>
-              <Txt v="subhead" color={C.label2}>
-                {i.body}
-              </Txt>
-              <Txt v="caption1" color={C.label3}>
-                {i.evidence}
-              </Txt>
-            </View>
-          </View>
-        </Card>
-      ))}
+      <LearnedDeck
+        items={learned}
+        onOpen={(i) => {
+          if (!i.route) return;
+          haptic.tap();
+          onClose();
+          router.push(i.route);
+        }}
+      />
     </Sheet>
   );
 }
