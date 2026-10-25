@@ -6,7 +6,7 @@
 import { Rotate3d, Smartphone, X } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
 import { Modal, StyleSheet, View, useWindowDimensions } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useInsets } from '@/ui/insets';
 
 import { C, S } from '@/constants/theme';
 import { Medal3D, requestTilt, tiltApi, tiltNeedsPermission, watchTiltData, type Medal3DHandle } from '@/features/medal3d';
@@ -52,7 +52,7 @@ function ViewerBody({
   onClose: () => void;
 }) {
   const { width, height } = useWindowDimensions();
-  const insets = useSafeAreaInsets();
+  const insets = useInsets();
   const medal = useRef<Medal3DHandle>(null);
   const [tilt, setTilt] = useState(false);
   // iOS asks first, so the button shows; elsewhere it appears once the phone reports a real tilt

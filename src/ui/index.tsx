@@ -20,7 +20,7 @@ import {
   type TextStyle,
   type ViewStyle,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useInsets } from './insets';
 
 import { C, FONT, R, S, TAB_BAR_HEIGHT, TYPE, tint, type TypeStyle, type Weight } from '@/constants/theme';
 import { haptic } from '@/lib/haptics';
@@ -150,7 +150,7 @@ export function Screen({
   /** Which colour glows behind this screen (Settings > Background decides the style). */
   backdrop?: BackdropTone;
 }) {
-  const insets = useSafeAreaInsets();
+  const insets = useInsets();
   const [scrolled, setScrolled] = useState(false);
   const top = modal ? S.xl : insets.top + S.sm;
   const bottom = (modal ? insets.bottom : insets.bottom + TAB_BAR_HEIGHT) + S.xxxl;

@@ -1,7 +1,7 @@
 /** A small glass pill that appears when a new version has been downloaded. */
 import { RefreshCw } from 'lucide-react-native';
 import { StyleSheet, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useInsets } from '@/ui/insets';
 
 import { C } from '@/constants/theme';
 import { applyUpdate, useUpdateAvailable } from '@/lib/pwa';
@@ -9,7 +9,7 @@ import { Glass, Pressy, Txt } from '@/ui';
 
 export function UpdatePill() {
   const ready = useUpdateAvailable();
-  const insets = useSafeAreaInsets();
+  const insets = useInsets();
   if (!ready) return null;
   return (
     <View pointerEvents="box-none" style={[styles.wrap, { top: insets.top + 6 }]}>

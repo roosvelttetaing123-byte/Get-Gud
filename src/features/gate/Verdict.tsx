@@ -20,7 +20,7 @@ import {
   type ScrollViewInstance,
   type TextInputProps,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useInsets } from '@/ui/insets';
 
 import { C, FONT, R, S, SYS, VALENCE } from '@/constants/theme';
 import type { GateResult } from '@/lib/derive';
@@ -185,7 +185,7 @@ function FieldPage({
   scrollRef?: React.RefObject<ScrollViewInstance | null>;
   children: React.ReactNode;
 }) {
-  const insets = useSafeAreaInsets();
+  const insets = useInsets();
   const tabTop = useTabBarTop();
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>

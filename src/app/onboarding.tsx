@@ -8,7 +8,7 @@ import { router } from 'expo-router';
 import { ChevronLeft } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
 import { Keyboard, StyleSheet, View, useWindowDimensions, type TextInputInstance } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useInsets } from '@/ui/insets';
 
 import { C, S } from '@/constants/theme';
 import { MAX_PROMISES, loadRituals, promiseOptions, saveRituals, type Rituals } from '@/features/onboarding/model';
@@ -32,7 +32,7 @@ type Step = (typeof STEPS)[number];
 const NAME = STEPS.indexOf('name');
 
 export default function Onboarding() {
-  const insets = useSafeAreaInsets();
+  const insets = useInsets();
   const { width } = useWindowDimensions();
 
   const [step, setStep] = useState(0);
