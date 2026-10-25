@@ -1,6 +1,6 @@
 /**
  * Global: stamps newly earned medals the moment their condition is met (anywhere in the app),
- * and celebrates each one once, with the 3D medal and confetti.
+ * and celebrates each one once, with the live 3D medal and confetti.
  */
 import { useEffect } from 'react';
 import { AppState } from 'react-native';
@@ -43,6 +43,8 @@ export function AwardWatcher() {
       title={award?.title ?? ''}
       detail={award?.detail}
       onDone={() => award && actions.markAwardsSeen([award.id])}
+      medalId={award?.id}
+      earnedAt={award ? state.awards[award.id] : undefined}
     />
   );
 }

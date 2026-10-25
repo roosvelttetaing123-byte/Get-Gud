@@ -3,6 +3,8 @@
  * and which one to put in the hero. Pure functions of the store state.
  */
 import { C, SYS } from '@/constants/theme';
+import { engraveDate } from '@/features/medal3d/specs';
+import type { MedalBack } from '@/features/medal3d/types';
 import { AWARDS, streak, type Award } from '@/lib/engage';
 import type { State } from '@/lib/store';
 
@@ -85,6 +87,12 @@ export function lockedLine(v: MedalView): string {
   if (p === undefined) return 'Not earned yet';
   if (p > 0) return `${pct(p)} there`;
   return v.award.id.startsWith('streak-') ? 'Starts today' : 'Not started yet';
+}
+
+/** What the back of the 3D medal says: title and the date earned, or the progress of a locked one. */
+export function backOf(v: MedalView, now: Date): MedalBack {
+  if (v.earned) return { title: v.award.title, line: engraveDate(v.at ?? now.getTime()) };
+  return { title: v.award.title, line: lockedLine(v), progress: v.progress };
 }
 
 /** Each medal's dominant colour, so its light matches it. */

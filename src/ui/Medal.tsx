@@ -1,6 +1,6 @@
 /**
  * 3D medals (pre-rendered) with a tactile tilt + specular sweep on press,
- * and a full-screen celebration with confetti for newly earned awards.
+ * and a full-screen celebration with confetti for newly earned awards (live 3D on web: features/medal3d).
  */
 import { Image, type ImageSource } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -8,6 +8,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Animated, Easing, Modal, Platform, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 
 import { C, S, SYS } from '@/constants/theme';
+import { Medal3D } from '@/features/medal3d/Medal3D';
+import { engraveDate } from '@/features/medal3d/specs';
 import { haptic } from '@/lib/haptics';
 
 import { Button, Txt } from './index';
@@ -138,7 +140,11 @@ function Confetti({ fire, seed = 1, count = 46 }: { fire: number; seed?: number;
   );
 }
 
-/** Full-screen medal reveal. Show one award at a time. */
+/**
+ * Full-screen medal reveal. Show one award at a time.
+ * With `medalId` (web), the new medal arrives live in 3D: the still shows at once, then it spins in
+ * and settles, and it can be spun. Without it (or on native) the still flips in.
+ */
 export function Celebration({
   visible,
   image,
@@ -146,6 +152,8 @@ export function Celebration({
   detail,
   kicker = 'New medal',
   onDone,
+  medalId,
+  earnedAt,
 }: {
   visible: boolean;
   image?: ImageSource;
@@ -153,6 +161,10 @@ export function Celebration({
   detail?: string;
   kicker?: string;
   onDone: () => void;
+  /** Award id, for the live 3D medal. */
+  medalId?: string;
+  /** When it was earned (ms), engraved on the back. */
+  earnedAt?: number;
 }) {
   const reduce = useReduceMotion();
   const fire = visible && !reduce ? 1 : 0;
@@ -162,6 +174,7 @@ export function Celebration({
     if (visible) haptic.success();
   }, [visible]);
   if (!visible) return null;
+  const live = !!medalId && Platform.OS === 'web';
   return (
     <Modal transparent visible animationType="fade" onRequestClose={onDone} statusBarTranslucent>
       <View style={[StyleSheet.absoluteFill, styles.backdrop]}>
@@ -173,10 +186,22 @@ export function Celebration({
           {image ? (
             <View
               style={{
-                transform: [{ perspective: 800 }, { scale: 0.4 + s * 0.6 }, { rotateY: `${spin * 160}deg` }],
+                // the live medal does its own spin; the still flips in
+                transform: [{ perspective: 800 }, { scale: 0.4 + s * 0.6 }, { rotateY: `${live ? 0 : spin * 160}deg` }],
                 marginVertical: S.lg,
               }}>
-              <Image source={image} style={{ width: 220, height: 220 }} contentFit="contain" />
+              {medalId ? (
+                <Medal3D
+                  id={medalId}
+                  image={image}
+                  size={220}
+                  back={{ title, line: earnedAt ? engraveDate(earnedAt) : kicker }}
+                  label={`${title} medal`}
+                  intro="celebrate"
+                />
+              ) : (
+                <Image source={image} style={{ width: 220, height: 220 }} contentFit="contain" />
+              )}
             </View>
           ) : null}
           <Txt v="title1" align="center">
