@@ -1,13 +1,14 @@
 /**
- * Medals: Apple Fitness Awards. The latest medal is the hero, then the streak strip,
- * then every medal in a 3-column grid. Tap any medal for its story.
+ * Medals: Apple Fitness Awards. The latest medal is the hero, live in 3D (drag to spin it), then the
+ * streak strip, then every medal in a 3-column grid. Tap any medal to open it full screen.
  */
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { View } from 'react-native';
 
 import { S } from '@/constants/theme';
-import { HeroMedal, MedalSection, MedalSheet, StreakStrip } from '@/features/awards/parts';
+import { HeroMedal, MedalSection, StreakStrip } from '@/features/awards/parts';
+import { MedalViewer } from '@/features/awards/Viewer';
 import { SECTIONS, latestEarned, medalViews, nextUp, streakInfo } from '@/features/awards/model';
 import { useStore } from '@/lib/store';
 import { useNow } from '@/lib/useNow';
@@ -41,7 +42,7 @@ export default function MedalsScreen() {
         title="Medals"
         caption={`${earnedCount} of ${views.length} earned`}
         accessory={<Button title="Done" kind="gray" size="small" full={false} onPress={close} />}>
-        {hero ? <HeroMedal key={hero.award.id} view={hero} now={now} onPress={() => open(hero.award.id)} /> : null}
+        {hero ? <HeroMedal key={hero.award.id} view={hero} now={now} /> : null}
 
         <Section title="Your streak">
           <StreakStrip info={info} />
@@ -59,7 +60,7 @@ export default function MedalsScreen() {
           ))}
         </View>
       </Screen>
-      <MedalSheet view={selected} section={section} visible={visible} now={now} onClose={() => setVisible(false)} />
+      <MedalViewer view={selected} section={section} visible={visible} now={now} onClose={() => setVisible(false)} />
     </>
   );
 }
