@@ -63,7 +63,7 @@ If the kit lacks something you need, build it inside your own feature folder in 
   - `stageOf(s)` returns checkin | day | close | done. It drives Today's single primary action.
   - Medals: `AWARDS` (id, title, detail, image, earned, progress) and `LOCKED_MEDAL`.
   - `settings.freezes` holds the streak freezes in the bank.
-- `src/lib/account.ts`: the prop-firm account from logged R. `accountStatus(s, now)` gives balance %, room before the daily and max loss limits, losses left, trading days, the four objectives and `blocked` (the gate's Stop, only once `accountSize > 0`). `performance(trades)` gives the equity curve and win rate, profit factor, expectancy, average win/loss, drawdown. Half-size trades carry `size: 0.5`.
+- `src/lib/account.ts`: the prop-firm account from logged R. `accountStatus(s, now)` gives balance %, room before the daily (from `dayResetHour`) and max loss limits, open risk, losses left, trading days, the four objectives and `blocked` (the gate's Stop, only once `accountSize > 0`). `performance(trades)` gives the equity curve and win rate, profit factor, expectancy, average win/loss, drawdown. Half-size trades carry `size: 0.5`.
 - `src/lib/derive.ts`: `evaluateGate`, `tradingToday`, `journalStats`, `EMOTIONS`, `fmtR`, `timeAgo`. Only the Gate agent may edit this file.
 - Medals are stamped and celebrated globally by `AwardWatcher` in the root layout, so never celebrate medals yourself.
 
