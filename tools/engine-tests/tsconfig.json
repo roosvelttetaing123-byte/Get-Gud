@@ -19,6 +19,7 @@
     "../../src/lib/sleepNeed.ts",
     "../../src/lib/modelFit.ts",
     "../../src/lib/coach.ts",
-    "../../src/lib/review.ts"
+    "../../src/lib/review.ts",
+    "../../src/lib/account.ts"
   ]
 }

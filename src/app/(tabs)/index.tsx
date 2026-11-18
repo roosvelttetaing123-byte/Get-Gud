@@ -11,6 +11,7 @@ import { CheckInSheet } from '@/features/today/CheckInSheet';
 import { CloseSheet } from '@/features/today/CloseSheet';
 import { CoachCard } from '@/features/today/CoachCard';
 import { DayStrip } from '@/features/today/DayStrip';
+import { AccountCard } from '@/features/today/AccountCard';
 import { TodayAccessory, WhyQuote } from '@/features/today/Header';
 import { HeroRings } from '@/features/today/HeroRings';
 import { PrimaryAction } from '@/features/today/PrimaryAction';
@@ -21,6 +22,7 @@ import { WeekStreak } from '@/features/today/WeekStreak';
 import { WeekReviewCard } from '@/features/review/WeekReviewCard';
 import { coach as coachFor } from '@/lib/coach';
 import { tradingToday } from '@/lib/derive';
+import { accountStatus } from '@/lib/account';
 import { isPerfect, ringDetails, ringsFor, stageOf, streak, weekStrip } from '@/lib/engage';
 import { keyOf, sleepSummary } from '@/lib/sleep';
 import { sleepEdge } from '@/lib/sleepEdge';
@@ -50,6 +52,7 @@ export default function TodayScreen() {
   const edge = useMemo(() => sleepEdge(state), [state]);
   // The strip follows the schedule's day (after midnight it's still last night until you wake).
   const stripKey = keyOf(sum.sched.wakeAt);
+  const acct = useMemo(() => accountStatus(state, now.getTime()), [state, now]);
   const todays = state.trades.filter((t) => dayKey(t.ts) === key);
 
   const openCheckIn = () => setSheet('checkin');
@@ -68,6 +71,7 @@ export default function TodayScreen() {
           onCheckIn={openCheckIn}
           onCloseDay={openClose}
         />
+        <AccountCard acct={acct} />
       </View>
 
       <DayStrip

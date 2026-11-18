@@ -32,6 +32,13 @@ export const DEFAULT_SETTINGS: Settings = {
   healthGist: '',
   onboarded: false,
   background: 'living',
+  accountSize: 0,
+  riskPct: 1,
+  dailyLossPct: 5,
+  maxLossPct: 10,
+  targetPct: 10,
+  minDays: 4,
+  accountStart: '',
 };
 
 const KEY = 'getgud:v1';

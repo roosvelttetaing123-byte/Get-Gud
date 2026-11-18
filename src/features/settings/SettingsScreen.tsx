@@ -28,6 +28,7 @@ import { haptic } from '@/lib/haptics';
 import { actions, useStore, type Settings } from '@/lib/store';
 import { Group, ListRow, Screen, Txt } from '@/ui';
 
+import { AccountGroup } from './AccountGroup';
 import { Avatar } from './Avatar';
 import { BackgroundPicker } from './BackgroundPicker';
 import { useConfirm } from './confirm';
@@ -168,6 +169,8 @@ export function SettingsScreen() {
             }
           />
         </Group>
+
+        <AccountGroup settings={settings} confirm={confirm} />
 
         <Group header="Daily life" footer="Rest days never break your streak.">
           <ListRow

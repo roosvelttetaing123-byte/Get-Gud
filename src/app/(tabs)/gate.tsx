@@ -23,6 +23,7 @@ import { NameStep } from '@/features/gate/NameStep';
 import { RulesStep } from '@/features/gate/RulesStep';
 import { useNow } from '@/features/gate/useNow';
 import { VerdictView, WalkedView } from '@/features/gate/Verdict';
+import { accountStatus } from '@/lib/account';
 import { evaluateGate, tradingToday, type GateResult } from '@/lib/derive';
 import { actions, getState, useStore } from '@/lib/store';
 import { Button } from '@/ui';
@@ -86,7 +87,7 @@ export default function GateScreen() {
     setPhase({ step: 'verdict', result, id: runs.current });
   };
 
-  const log = (result: GateResult, taken: boolean, overridden: boolean, plan?: string) => {
+  const log = (result: GateResult, taken: boolean, overridden: boolean, plan?: string, size?: number) => {
     const p = plan?.trim();
     holding.current = false;
     actions.addTrade({
@@ -98,6 +99,7 @@ export default function GateScreen() {
       valence,
       associations: about,
       ...(p ? { plan: p } : null),
+      ...(size !== undefined ? { size } : null),
     });
   };
 
@@ -122,7 +124,7 @@ export default function GateScreen() {
         cooldownMs={state.settings.cooldownMin * 60000}
         onLog={(plan, half) => {
           const p = plan.trim();
-          log(result, true, false, half ? (p ? `${p} (half size)` : 'Half size') : p);
+          log(result, true, false, half ? (p ? `${p} (half size)` : 'Half size') : p, half ? 0.5 : undefined);
           router.push('/journal');
         }}
         onSkip={() => {
@@ -167,7 +169,7 @@ export default function GateScreen() {
           <FeelStep
             valence={valence}
             onChange={setValence}
-            badges={sessionBadges(tradingToday(state, now), state.settings, coolLeft(state, now))}
+            badges={sessionBadges(tradingToday(state, now), state.settings, coolLeft(state, now), accountStatus(state, now))}
             morning={morning}
             onSameAsMorning={() => {
               if (morning) setValence(morning);

@@ -15,6 +15,7 @@ export interface Trade {
   taken: boolean; // false = you walked away (a discipline win)
   overridden: boolean; // took it despite a stop
   plan?: string; // one-line setup description
+  size?: number; // position size vs your normal risk (0.5 = half size); missing = full
   // filled in after the trade closes
   result?: Result;
   r?: number; // R multiple, e.g. 2, -1, 0
@@ -99,6 +100,17 @@ export interface Settings {
   onboarded: boolean;
   /** Screen background: 'living' colour glows, 'midnight' navy, or 'black'. Unknown values mean 'living'. */
   background: string;
+  /**
+   * Your funded or challenge account, prop-firm style. accountSize 0 = not set up (the account
+   * card asks for it). Percentages are of the starting balance; 0 turns a limit or target off.
+   */
+  accountSize: number;
+  riskPct: number; // % of the account a full 1R loss costs
+  dailyLossPct: number; // max daily loss
+  maxLossPct: number; // max total loss
+  targetPct: number; // profit target
+  minDays: number; // minimum trading days
+  accountStart: string; // dayKey the account (or this phase) began; '' = all trades
 }
 
 export interface State {

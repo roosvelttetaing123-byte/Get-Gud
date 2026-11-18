@@ -4,6 +4,7 @@
  */
 import type { Tone } from '@/constants/theme';
 import { dayKey, isToday, type DayLog, type Settings, type State, type Trade, type Verdict } from './store';
+import { accountStatus } from './account';
 import { sleepSummary } from './sleep';
 
 /* ---------- emotions ---------- */
@@ -157,6 +158,11 @@ export function evaluateGate(input: GateInput, s: State, now = Date.now()): Gate
 
   // 1. Daily limits end the day.
   if (t.limitHit) stop.push(['limit', t.limitHit]);
+  // The account's loss limits, once an account is set up (a funded account dies on these).
+  else if (settings.accountSize > 0) {
+    const acct = accountStatus(s, now);
+    if (acct.blocked) stop.push(['limit', acct.blocked]);
+  }
 
   // 2. Revenge window: a hot feeling while the last trade (win or loss) is still fresh.
   const last = lastClosed(s);

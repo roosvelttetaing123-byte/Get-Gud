@@ -3,6 +3,7 @@
  * (evaluateGate); this file only shapes data for display.
  */
 import { C, SYS, VALENCE } from '@/constants/theme';
+import { fmtPct, type AccountStatus } from '@/lib/account';
 import { EMOTIONS, emotionTone, type TradingToday } from '@/lib/derive';
 import { dayKey, type Settings, type State, type Trade } from '@/lib/store';
 
@@ -116,9 +117,18 @@ export interface SessionBadge {
 }
 
 /** Compact facts for the top of step 1: trades used, loss streak, cool-down, limit. */
-export function sessionBadges(t: TradingToday, s: Settings, coolLeftMin: number | null): SessionBadge[] {
+export function sessionBadges(
+  t: TradingToday,
+  s: Settings,
+  coolLeftMin: number | null,
+  acct?: AccountStatus,
+): SessionBadge[] {
   const out: SessionBadge[] = [];
-  if (t.limitHit) out.push({ key: 'limit', label: 'Limit hit', color: SYS.red, solid: true });
+  const acctBlocked = acct?.set ? acct.blocked : null;
+  if (t.limitHit || acctBlocked) out.push({ key: 'limit', label: 'Limit hit', color: SYS.red, solid: true });
+  // Room before the daily loss limit, prop-firm style: orange once one loss is all that's left.
+  if (acct?.set && !acctBlocked && Number.isFinite(acct.dailyRoom))
+    out.push({ key: 'room', label: `${fmtPct(acct.dailyRoom, false)} left today`, color: acct.lossesLeft <= 1 ? SYS.orange : C.label });
   const used = t.taken.length;
   out.push({
     key: 'trades',
