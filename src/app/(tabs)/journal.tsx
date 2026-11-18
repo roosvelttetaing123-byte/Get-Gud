@@ -9,14 +9,17 @@ import React, { useMemo, useState } from 'react';
 
 import { useNow } from '@/features/journal/bits';
 import { DaySheet } from '@/features/journal/DaySheet';
+import { EquityCard } from '@/features/journal/EquityCard';
 import { Entries, NeedsResult } from '@/features/journal/Entries';
 import { HighlightCard } from '@/features/journal/Highlight';
+import { MONTHS } from '@/features/journal/format';
 import { chartSeries, pickHighlight, type Range } from '@/features/journal/insight';
 import { MoodCalendar } from '@/features/journal/MoodCalendar';
 import { Patterns } from '@/features/journal/Patterns';
 import { RChart } from '@/features/journal/RChart';
 import { useLatestReview, WeekReviewCard } from '@/features/review/WeekReviewCard';
 import { WeekStory } from '@/features/review/WeekStory';
+import { accountTrades, performance } from '@/lib/account';
 import { journalStats } from '@/lib/derive';
 import { sleepEdge } from '@/lib/sleepEdge';
 import { useStore } from '@/lib/store';
@@ -38,6 +41,10 @@ export default function JournalScreen() {
   const highlight = useMemo(() => pickHighlight(stats), [stats]);
   const edge = useMemo(() => sleepEdge(state), [state]);
   const series = useMemo(() => chartSeries(trades, range, now), [trades, range, now]);
+  // The account's phase when one is running, otherwise every trade.
+  const perf = useMemo(() => performance(accountTrades(state)), [state]);
+  const { settings } = state;
+  const since = settings.accountStart ? `Since ${Number(settings.accountStart.slice(8))} ${MONTHS[Number(settings.accountStart.slice(5, 7)) - 1]}` : 'All trades';
 
   const closeDay = () => setDay((d) => (d ? { ...d, open: false } : d));
 
@@ -53,6 +60,15 @@ export default function JournalScreen() {
         <>
           <HighlightCard highlight={highlight} closed={stats.closed} />
           <RChart series={series} range={range} onRange={setRange} />
+          {perf.closed ? (
+            <Section title="Equity">
+              <EquityCard
+                perf={perf}
+                since={since}
+                account={settings.accountSize > 0 ? { size: settings.accountSize, riskPct: settings.riskPct } : undefined}
+              />
+            </Section>
+          ) : null}
         </>
       ) : (
         <Empty
