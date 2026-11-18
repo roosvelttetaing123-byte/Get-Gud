@@ -56,12 +56,14 @@ function CheckInForm({ checkin, onDone }: { checkin?: CheckIn; onDone: () => voi
   const [logsNight] = useState(() => {
     const s = getState();
     const own = checkin?.sleepId ? s.sleeps.find((l) => l.id === checkin.sleepId) : undefined;
+    // Sleep mode still running means tonight's real night is being timed; leave it alone.
+    if (s.sleepSession) return undefined;
     return own ? own : sleepSummary(s).debt.lastNight === undefined ? null : undefined;
   });
 
   const save = () => {
     let sleepId = checkin?.sleepId;
-    if (sleep !== undefined && logsNight !== undefined) {
+    if (sleep !== undefined && sleep > 0 && logsNight !== undefined) {
       // Woke at your usual time (or now, if that's still ahead), slept the hours you picked.
       const now = Date.now();
       const wake = logsNight ? logsNight.wake : Math.min(now, sleepSummary(getState(), now).sched.wakeAt);

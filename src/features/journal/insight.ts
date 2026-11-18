@@ -148,7 +148,8 @@ export function pickHighlight(st: JournalStats): Highlight | null {
     };
   }
 
-  if (st.overrides.n) {
+  // Only when overriding cost you: a lucky override is not a lesson worth leading with.
+  if (st.overrides.n >= MIN_SAMPLE && st.overrides.avgR < 0) {
     const o = st.overrides;
     return {
       icon: OctagonX,
