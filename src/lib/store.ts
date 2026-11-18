@@ -39,6 +39,7 @@ export const DEFAULT_SETTINGS: Settings = {
   targetPct: 10,
   minDays: 4,
   accountStart: '',
+  dayResetHour: 0,
 };
 
 const KEY = 'getgud:v1';

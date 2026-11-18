@@ -43,8 +43,9 @@ export function EquityCard({
   const last = pts[pts.length - 1]?.r ?? 0;
   const total = useSpringValue(last, 'smooth');
   const r = sel !== null ? pts[sel].r : Math.round(total * 100) / 100;
+  const u = pts[sel ?? pts.length - 1]?.u ?? 0;
   const title = sel === null ? since : sel === 0 ? 'Start' : `Trade ${sel} · ${dateOf(pts[sel].ts)}`;
-  const money = account ? fmtMoney(account.size, 100 + r * account.riskPct) : null;
+  const money = account ? fmtMoney(account.size, 100 + u * account.riskPct) : null;
 
   return (
     <Card padding={S.lg} style={{ gap: S.md }}>
@@ -57,7 +58,7 @@ export function EquityCard({
             {money ?? fmtRx(r)}
           </Num>
           <Txt v="subhead" weight="600" rounded tabular color={C.label2}>
-            {money ? `${fmtRx(r)} · ${fmtPct(r * account!.riskPct)}` : count(perf.closed, 'trade')}
+            {money ? `${fmtRx(r)} · ${fmtPct(u * account!.riskPct)}` : count(perf.closed, 'trade')}
           </Txt>
         </View>
       </View>
@@ -89,7 +90,7 @@ function Tile({ label, value }: { label: string; value: string }) {
   );
 }
 
-function Curve({ pts, sel, onSelect }: { pts: { ts: number; r: number }[]; sel: number | null; onSelect: (i: number | null) => void }) {
+function Curve({ pts, sel, onSelect }: { pts: { ts: number; r: number; u: number }[]; sel: number | null; onSelect: (i: number | null) => void }) {
   const [width, setWidth] = useState(0);
   const touch = useRef({ origin: 0, i: -1 });
   const n = pts.length;

@@ -45,7 +45,9 @@ export interface AccountStatus {
   /** % you can still lose today, and in total, before a limit. Infinity when that limit is off. */
   dailyRoom: number;
   maxRoom: number;
-  /** Full-size losses that still fit inside the tighter limit (Infinity when both are off). */
+  /** % open trades could still lose (their full risk). */
+  openRisk: number;
+  /** Full-size losses that still fit inside the tighter limit, after open risk (Infinity when both are off). */
   lossesLeft: number;
   tradingDays: number;
   objectives: Objective[];
@@ -57,13 +59,19 @@ export function accountStatus(s: State, now = Date.now()): AccountStatus {
   const st: Settings = s.settings;
   const risk = Math.max(0, st.riskPct || 0);
   const trades = accountTrades(s);
-  const today = keyOf(now);
+  // The firm's trading day: it starts at `dayResetHour` local time (00:00 CE(S)T is 05:00/06:00
+  // in Phnom Penh), so a loss at 02:00 still counts against the day that began yesterday.
+  const today = tradingDay(now, st.dayResetHour);
   const totalPct = round2(trades.reduce((a, t) => a + pctOf(t, risk), 0));
-  const todayPct = round2(trades.filter((t) => keyOf(t.ts) === today).reduce((a, t) => a + pctOf(t, risk), 0));
+  const todayPct = round2(
+    trades.filter((t) => tradingDay(closedOrTs(t), st.dayResetHour) === today).reduce((a, t) => a + pctOf(t, risk), 0),
+  );
   // Daily room follows the day's result, like a limit set from the day's opening balance.
   const dailyRoom = st.dailyLossPct > 0 ? Math.max(0, round2(st.dailyLossPct + todayPct)) : Infinity;
   const maxRoom = st.maxLossPct > 0 ? Math.max(0, round2(st.maxLossPct + totalPct)) : Infinity;
-  const room = Math.min(dailyRoom, maxRoom);
+  // A trade still open can still lose its full risk: it already uses up room.
+  const openRisk = round2(trades.filter((t) => !t.result).reduce((a, t) => a + sizeOf(t) * risk, 0));
+  const room = Math.max(0, round2(Math.min(dailyRoom, maxRoom) - openRisk));
   const lossesLeft = risk > 0 && Number.isFinite(room) ? Math.floor(room / risk + 1e-9) : Infinity;
   const tradingDays = new Set(trades.map((t) => keyOf(t.ts))).size;
 
@@ -89,7 +97,7 @@ export function accountStatus(s: State, now = Date.now()): AccountStatus {
       key: 'max',
       label: `Max loss ${fmtPct(st.maxLossPct, false)}`,
       used: clamp01(1 - maxRoom / st.maxLossPct),
-      detail: `${fmtPct(maxRoom, false)} left`,
+      detail: `${fmtPct(maxRoom, false)} above the floor`,
       done: maxRoom <= 0,
     });
   if (st.minDays > 0)
@@ -105,12 +113,25 @@ export function accountStatus(s: State, now = Date.now()): AccountStatus {
   if (maxRoom <= 0) blocked = 'Max loss reached. This account is done.';
   else if (dailyRoom <= 0) blocked = 'Daily loss limit reached. Done for today.';
   else if (risk > 0 && room < risk)
-    blocked = `Only ${fmtPct(room, false)} left before your ${dailyRoom <= maxRoom ? 'daily' : 'max'} loss limit. One more loss breaks it.`;
+    blocked = openRisk
+      ? `Your open ${openRisk === risk ? 'trade' : 'trades'} could still use the room left. Close first.`
+      : `Only ${fmtPct(room, false)} left before your ${dailyRoom <= maxRoom ? 'daily' : 'max'} loss limit. One more loss breaks it.`;
 
-  return { set: st.accountSize > 0, size: st.accountSize, totalPct, todayPct, dailyRoom, maxRoom, lossesLeft, tradingDays, objectives, blocked };
+  return { set: st.accountSize > 0, size: st.accountSize, totalPct, todayPct, dailyRoom, maxRoom, openRisk, lossesLeft, tradingDays, objectives, blocked };
 }
 
-/* ---------- performance (prop-firm style statistics, in R) ---------- */
+const closedOrTs = (t: Trade) => t.closedTs ?? t.ts;
+
+/** The dayKey of the firm's trading day `ts` falls in, when days start at `resetHour` local time. */
+export function tradingDay(ts: number, resetHour = 0): string {
+  const d = new Date(ts);
+  if (d.getHours() < resetHour) d.setDate(d.getDate() - 1);
+  return keyOf(d.getTime());
+}
+
+/* ---------- performance (prop-firm style statistics, in R) ----------
+ * R as logged (the same R the Journal's chart and lenses use). The curve also carries `u`, the
+ * running total weighted by position size, so a balance (u × risk %) matches the account. */
 
 export interface Performance {
   closed: number;
@@ -120,28 +141,30 @@ export interface Performance {
   /** Gross wins / gross losses; Infinity with no losses, 0 with no wins. */
   profitFactor: number;
   expectancy: number; // R per trade
-  /** Cumulative R after each closed trade, oldest first, starting at 0. */
-  curve: { ts: number; r: number }[];
+  /** After each closed trade, oldest first, from a 0 start: cumulative R, and size-weighted R. */
+  curve: { ts: number; r: number; u: number }[];
   /** Largest fall from a high in the curve, in R (0 or negative). */
   maxDrawdown: number;
 }
 
 export function performance(trades: Trade[]): Performance {
   const closed = trades.filter((t) => t.taken && t.result).sort((a, b) => (a.closedTs ?? a.ts) - (b.closedTs ?? b.ts));
-  const rs = closed.map((t) => (t.r ?? 0) * sizeOf(t));
+  const rs = closed.map((t) => t.r ?? 0);
   const wins = rs.filter((r) => r > 0);
   const losses = rs.filter((r) => r < 0);
   const gw = wins.reduce((a, r) => a + r, 0);
   const gl = -losses.reduce((a, r) => a + r, 0);
-  const curve: { ts: number; r: number }[] = [{ ts: closed[0]?.ts ?? 0, r: 0 }];
+  const curve: { ts: number; r: number; u: number }[] = [{ ts: closed[0]?.ts ?? 0, r: 0, u: 0 }];
   let cum = 0;
+  let units = 0;
   let peak = 0;
   let dd = 0;
   closed.forEach((t, i) => {
     cum += rs[i];
+    units += rs[i] * sizeOf(t);
     peak = Math.max(peak, cum);
     dd = Math.min(dd, cum - peak);
-    curve.push({ ts: t.closedTs ?? t.ts, r: round2(cum) });
+    curve.push({ ts: t.closedTs ?? t.ts, r: round2(cum), u: round2(units) });
   });
   return {
     closed: closed.length,

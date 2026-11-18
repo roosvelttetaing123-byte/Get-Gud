@@ -111,6 +111,7 @@ export interface Settings {
   targetPct: number; // profit target
   minDays: number; // minimum trading days
   accountStart: string; // dayKey the account (or this phase) began; '' = all trades
+  dayResetHour: number; // local hour the firm's trading day starts (daily loss resets)
 }
 
 export interface State {

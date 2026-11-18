@@ -10,7 +10,7 @@ const dir = process.env.ENGINE_DIR;
 if (!dir) throw new Error('Set ENGINE_DIR to the compiled engine (see scripts/test-engine.sh).');
 const A = require(`${dir}/account.js`);
 
-const at = (daysAgo, h = 10) => new Date(2026, 5, 17 - daysAgo, h).getTime();
+const at = (daysAgo, h = 10, m = 0) => new Date(2026, 5, 17 - daysAgo, h, m).getTime();
 const NOW = at(0, 15);
 let n = 0;
 const trade = (daysAgo, r, extra = {}) => ({
@@ -27,7 +27,7 @@ const trade = (daysAgo, r, extra = {}) => ({
   ...extra,
 });
 const state = (trades, over = {}) => ({
-  settings: { accountSize: 100000, riskPct: 1, dailyLossPct: 5, maxLossPct: 10, targetPct: 10, minDays: 4, accountStart: '', ...over },
+  settings: { accountSize: 100000, riskPct: 1, dailyLossPct: 5, maxLossPct: 10, targetPct: 10, minDays: 4, accountStart: '', dayResetHour: 0, ...over },
   trades,
 });
 
@@ -74,6 +74,27 @@ describe('accountStatus', () => {
     assert.equal(a.lossesLeft, Infinity);
     assert.equal(a.blocked, null);
     assert.deepEqual(a.objectives.map((o) => o.key), ['target', 'days']);
+  });
+
+  test('open trades use up room: their full risk counts before they close', () => {
+    const losses = [trade(0, -1), trade(0, -1), trade(0, -1)];
+    const one = A.accountStatus(state([...losses, trade(0, 0, { result: undefined, r: undefined })]), NOW);
+    assert.equal(one.openRisk, 1);
+    assert.equal(one.lossesLeft, 1);
+    assert.equal(one.blocked, null);
+    const two = A.accountStatus(state([...losses, trade(0, 0, { result: undefined, r: undefined }), trade(0, 0, { result: undefined, r: undefined })]), NOW);
+    assert.equal(two.lossesLeft, 0);
+    assert.match(two.blocked, /open trades/);
+  });
+
+  test('the daily limit follows the firm day, not midnight', () => {
+    // Day resets at 06:00. A 02:00 loss today belongs to yesterday's firm day.
+    const early = trade(0, -2, { ts: at(0, 2), closedTs: at(0, 2, 30) });
+    const s = state([early], { dayResetHour: 6 });
+    assert.equal(A.accountStatus(s, at(0, 4)).todayPct, -2); // still yesterday's firm day at 04:00
+    assert.equal(A.accountStatus(s, at(0, 9)).todayPct, 0); // a fresh day from 06:00
+    assert.equal(A.accountStatus(state([early]), at(0, 9)).todayPct, -2); // midnight reset: it's today
+    assert.equal(A.tradingDay(at(0, 5), 6), A.tradingDay(at(1, 20), 6));
   });
 });
 

@@ -215,7 +215,8 @@ function CostRow({
   avgR: number;
   max: number;
 }) {
-  const rc = rColor(avgR);
+  // Under 3 trades it is luck, not a pattern: show the number, but in grey.
+  const rc = n < 3 ? C.gray : rColor(avgR);
   const line = `${count(n, 'trade')} · ${pct(winRate)} win rate`;
   return (
     <View style={styles.row} accessible accessibilityLabel={`${title}: ${line}, ${fmtRx(avgR)} on average`}>

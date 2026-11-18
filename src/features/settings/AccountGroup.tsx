@@ -3,7 +3,7 @@
  * the two loss limits, the target and minimum days, and "Start a new phase" (counts from today).
  * Everything is worked out from the R you log; nothing connects to a broker.
  */
-import { CalendarCheck, Flag, Percent, RotateCcw, ShieldAlert, TrendingDown, Wallet } from 'lucide-react-native';
+import { CalendarCheck, Clock, Flag, Percent, RotateCcw, ShieldAlert, TrendingDown, Wallet } from 'lucide-react-native';
 import React from 'react';
 
 import { C } from '@/constants/theme';
@@ -15,7 +15,7 @@ import type { ConfirmAsk } from './confirm';
 import { ValueStepper } from './parts';
 
 /** Common account sizes; 0 = not set up. */
-export const SIZES = [0, 5000, 10000, 25000, 50000, 100000, 200000];
+export const SIZES = [0, 5000, 10000, 15000, 25000, 50000, 75000, 100000, 150000, 200000, 300000, 400000];
 
 const update = (patch: Partial<Settings>) => actions.updateSettings(patch);
 const money = (n: number) => (n ? `$${n.toLocaleString('en-US')}` : 'Not set');
@@ -48,7 +48,10 @@ export function AccountGroup({ settings, confirm }: { settings: Settings; confir
             value={sizeIdx}
             min={0}
             max={SIZES.length - 1}
-            onChange={(i) => update({ accountSize: SIZES[i] })}
+            onChange={(i) =>
+              // Turning the account on starts its first phase today, so old trades don't count.
+              update(!on && !settings.accountStart ? { accountSize: SIZES[i], accountStart: dayKey() } : { accountSize: SIZES[i] })
+            }
           />
         }
       />
@@ -70,6 +73,15 @@ export function AccountGroup({ settings, confirm }: { settings: Settings; confir
             subtitle={pctOrOff(settings.dailyLossPct)}
             accessory={
               <ValueStepper label="Daily loss limit" value={settings.dailyLossPct} min={0} max={10} step={0.5} onChange={(dailyLossPct) => update({ dailyLossPct })} />
+            }
+          />
+          <ListRow
+            icon={Clock}
+            iconColor={C.gray}
+            title="Day resets at"
+            subtitle={`${String(settings.dayResetHour).padStart(2, '0')}:00 your time`}
+            accessory={
+              <ValueStepper label="Day resets at" value={settings.dayResetHour} min={0} max={23} onChange={(dayResetHour) => update({ dayResetHour })} />
             }
           />
           <ListRow
