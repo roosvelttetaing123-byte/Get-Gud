@@ -1,6 +1,6 @@
 /**
  * What drives your R, Screen Time-style, in one card with three lenses instead of three long
- * sections: "What each feeling costs", "What tiredness costs" (the sleep edge) and "By the rules".
+ * sections: "Results by feeling", "Results by sleep" (the sleep edge) and "By the rules".
  * Every row has the same shape: a coloured icon square, the plain facts, the average R and a slim bar.
  */
 import { router } from 'expo-router';
@@ -32,8 +32,8 @@ import { feelingLook } from './look';
 type Lens = 'feelings' | 'sleep' | 'rules';
 const TOP = 4;
 const TITLE: Record<Lens, string> = {
-  feelings: 'What each feeling costs',
-  sleep: 'What tiredness costs',
+  feelings: 'Results by feeling',
+  sleep: 'Results by sleep',
   rules: 'By the rules',
 };
 

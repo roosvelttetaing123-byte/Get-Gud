@@ -11,7 +11,7 @@ import {
 } from 'lucide-react-native';
 
 import { C } from '@/constants/theme';
-import { round, type Bucket, type JournalStats } from '@/lib/derive';
+import { emotionTone, round, type Bucket, type JournalStats } from '@/lib/derive';
 import { dayKey, type Trade } from '@/lib/store';
 
 import { count, fmtRx, MONTHS, pct, rColor, times, WEEKDAYS, WEEKDAYS_LONG } from './format';
@@ -38,14 +38,22 @@ export const WARMUP = 3;
 const name = (label: string): Span => ({ text: label, color: feelingLook(label).color });
 const num = (text: string, color: string): Span => ({ text, color });
 
-/** Feelings to compare: prefer ones seen at least twice, so one lucky trade doesn't lead. */
+/** Trades a feeling (or rules followed / broken) needs before it can lead the highlight. */
+export const MIN_SAMPLE = 3;
+
+/**
+ * Feelings to compare, each seen at least MIN_SAMPLE times, so two lucky trades don't lead.
+ * Never holds up a risky feeling (Revenge, FOMO, Bored…) as better than a steady one: with this
+ * little data that's luck, and the lesson it would teach is the wrong one.
+ */
 function feelingPair(byEmotion: Bucket[]): { worst: Bucket; best: Bucket } | null {
-  const solid = byEmotion.filter((b) => b.n >= 2);
-  const pool = solid.length >= 2 ? solid : byEmotion;
+  const pool = byEmotion.filter((b) => b.n >= MIN_SAMPLE);
   if (pool.length < 2) return null;
   const worst = pool[0];
   const best = pool[pool.length - 1];
-  if (worst.avgR >= best.avgR && worst.winRate >= best.winRate) return null;
+  // A gap too small to act on isn't a lesson; let a rules or walk-away highlight speak instead.
+  if (best.avgR - worst.avgR < 0.5 && best.winRate - worst.winRate < 0.15) return null;
+  if (emotionTone(worst.label) === 'jade' && emotionTone(best.label) !== 'jade') return null;
   return { worst, best };
 }
 
@@ -103,8 +111,10 @@ export function pickHighlight(st: JournalStats): Highlight | null {
   }
 
   const { followed, broke } = st;
-  if (followed.n && broke.n && (followed.winRate !== broke.winRate || followed.avgR !== broke.avgR)) {
-    if (followed.winRate !== broke.winRate) {
+  // Only when the rules come out ahead: "breaking them paid" is never the lesson to show.
+  const rulesAhead = followed.avgR > broke.avgR || (followed.avgR === broke.avgR && followed.winRate > broke.winRate);
+  if (followed.n >= MIN_SAMPLE && broke.n >= MIN_SAMPLE && rulesAhead) {
+    if (followed.winRate > broke.winRate) {
       return {
         icon: ShieldCheck,
         color: C.green,

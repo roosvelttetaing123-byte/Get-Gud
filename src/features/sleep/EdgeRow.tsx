@@ -1,6 +1,6 @@
 /**
  * One result row for a sleep bucket (rest band or energy phase): coloured icon square,
- * label, trades and win rate, average R and a slim bar. Same shape as "What each feeling costs".
+ * label, trades and win rate, average R and a slim bar. Same shape as "Results by feeling".
  */
 import { BatteryFull, BatteryLow, BatteryMedium, BatteryWarning, type LucideIcon } from 'lucide-react-native';
 import { StyleSheet, View } from 'react-native';
