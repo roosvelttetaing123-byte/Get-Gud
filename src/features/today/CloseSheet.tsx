@@ -1,5 +1,6 @@
 /**
- * Evening ritual: rate the day (five faces, red to green), one good thing, an optional lesson.
+ * Evening ritual: rate the day (five faces, red to green), tick today's promises, one good
+ * thing, an optional lesson. Promises save as you flip them, like the rows on Today.
  */
 import { Annoyed, Frown, Laugh, Meh, Smile, type LucideIcon } from 'lucide-react-native';
 import React, { useState } from 'react';
@@ -7,10 +8,12 @@ import { StyleSheet, View } from 'react-native';
 
 import { C, S, SYS, tint } from '@/constants/theme';
 import { haptic } from '@/lib/haptics';
-import { actions, dayKey, type DayClose } from '@/lib/store';
-import { Button, Field, Pressy, Sheet, Txt, isLight, useSpringValue } from '@/ui';
+import { actions, dayKey, useStore, type DayClose } from '@/lib/store';
+import { Button, Field, Group, Pressy, Sheet, ToggleRow, Txt, isLight, useSpringValue } from '@/ui';
 
 import { SheetCard } from './parts';
+import { setPromise } from './Promises';
+import { promiseColor, promiseIcon } from './visuals';
 
 export const RATINGS: { label: string; icon: LucideIcon; color: string }[] = [
   { label: 'Rough', icon: Frown, color: SYS.red },
@@ -33,7 +36,7 @@ export function CloseSheet({
   intention?: string;
 }) {
   return (
-    <Sheet visible={visible} onClose={onClose} title="Close the day" detent="medium">
+    <Sheet visible={visible} onClose={onClose} title="Close the day" detent="large">
       <CloseForm close={close} intention={intention} onDone={onClose} />
     </Sheet>
   );
@@ -75,6 +78,8 @@ function CloseForm({ close, intention, onDone }: { close?: DayClose; intention?:
         </View>
       </SheetCard>
 
+      <DayPromises />
+
       <View style={{ gap: S.md }}>
         <Field label="One good thing" value={win} onChangeText={setWin} placeholder="Something you did well today" maxLength={120} />
         <Field label="One lesson (optional)" value={lesson} onChangeText={setLesson} placeholder="What you'd do differently" maxLength={120} />
@@ -82,6 +87,30 @@ function CloseForm({ close, intention, onDone }: { close?: DayClose; intention?:
 
       <Button title="Close the day" onPress={save} color={C.indigo} />
     </>
+  );
+}
+
+/** Today's promises as switch rows, so closing the day can close the Promises ring too. */
+function DayPromises() {
+  const { settings, days } = useStore();
+  const key = dayKey();
+  const promises = settings.promises;
+  const kept = days[key]?.promises ?? {};
+  if (!promises.length) return null;
+  const n = promises.filter((p) => kept[p]).length;
+  return (
+    <Group header="Promises kept" footer={n === promises.length ? `All ${n} kept. Ring closed.` : `${n} of ${promises.length} kept`}>
+      {promises.map((p, i) => (
+        <ToggleRow
+          key={p}
+          icon={promiseIcon(p)}
+          iconColor={promiseColor(i)}
+          title={p}
+          value={!!kept[p]}
+          onChange={(v) => setPromise(key, promises, kept, p, v)}
+        />
+      ))}
+    </Group>
   );
 }
 
