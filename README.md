@@ -3,9 +3,10 @@
 A discipline and emotion-control app for iPhone, built for trading and for life.
 
 - **Today**: three daily rings (Promises, Mind, Discipline) beside their numbers, tap them for what's left, swipe them to spin. One primary action by stage (check in, check before you trade with today's trades and trade window folded in, close the day). "Your day": a swipeable timeline of daylight, peaks, trade windows, the dip, caffeine, close the day and bed, with a now marker. A jelly mood shape you can poke, a forgiving streak whose flame turns blue at 21 days and purple at 66.
+- **Account** (on Today, prop-firm style): balance, profit target, daily loss limit, max loss and trading days from the R you log, as room left ("Room for 3 more losses today"). Set size, risk per trade and limits in Settings > Account; "Start a new phase" counts from today. The Gate says *Stop* before one more loss would break a limit.
 - **Coach** (on Today): one card a day. After a rough night, a calm three-step plan built from your own energy curve and results. Otherwise, the most useful pattern it has learned about you, held to a statistical bar before it says anything (`src/lib/coach.ts`). "What I've learned" is a swipeable deck.
 - **Gate**: before every trade, slide to how you feel, name it, and tick your rules. The answer is *Clear*, *Wait* (with a live cool-down) or *Stop*, based on your feelings, rules, daily limits, loss streak and cool-down.
-- **Journal**: 7 or 30 days of R you can scrub with a finger, "Your days" (a mood calendar; tap a day for its sleep, mood, trades and promises), what each feeling, tiredness and rule-breaking costs, and filterable entries.
+- **Journal**: 7 or 30 days of R you can scrub with a finger, an equity curve with win rate, profit factor, expectancy, average win and loss and drawdown, "Your days" (a mood calendar; tap a day for its sleep, mood, trades and promises), what each feeling, tiredness and rule-breaking costs, and filterable entries.
 - **Week in review**: from Sunday evening, a story of your week in full-screen slides: rituals, promises, trading by the rules, urges ridden out, sleep, and one focus for next week (`src/lib/review.ts`).
 - **Urge**: name the urge, rate it, and breathe through it with a Breathe-style bloom until it passes.
 - **Sleep**: sleep debt, a 24-hour body-clock dial you turn to see your energy, phase and trade window at any hour, the last 14 nights you can scrub, trade windows, learned sleep need and Apple Health sync.
@@ -34,7 +35,7 @@ npm run deploy   # builds the web app and pushes it to the gh-pages branch
 npx expo start --web    # live preview in the browser at /Get-Gud/
 npx expo start          # Expo Go on a phone
 npm run typecheck && npm run lint
-npm run test:engine      # sleep engine tests (Node's test runner, three time zones)
+npm run test:engine      # engine tests: sleep, coach, review, account (Node's test runner, three time zones)
 ```
 
 A native App Store build is also possible later with EAS (`npx eas-cli@latest build --platform ios`).
@@ -51,6 +52,7 @@ src/
   lib/derive.ts   gate rules, streaks, journal stats (pure functions)
   lib/sleep.ts    sleep engine: debt, body clock, energy curve (pure)
   lib/sleepEdge.ts, sleepNeed.ts, modelFit.ts   sleep vs results, learned need, model fit (pure)
+  lib/account.ts  the prop-firm account: limits, objectives, equity and stats (pure)
   lib/engage.ts   rings, streak freezes, medals
   lib/coach.ts, review.ts   the coach and the week in review (pure)
   features/medal3d/   live 3D medals (three.js, its own async chunk)

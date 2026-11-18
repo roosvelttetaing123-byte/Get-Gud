@@ -17,7 +17,7 @@ Get Gud is a discipline and emotion-control app for RV, a funded gold (XAU/USD) 
    - Use iOS 26 system colours from `SYS`. Never invent hex values in screens.
 4. **Springs, not tweens.** Every tap responds: `Pressy` scales to 0.96 with a snappy spring. Numbers and rings animate with `useSpringValue`. Bouncy springs are only for rewards (ring closing, medal reveal). Honour reduce motion.
 5. **Short words.** Sentence case, plain verbs, no paragraphs. Labels are 1–3 words, helper text one line. No emoji, no exclamation marks, no ALL CAPS, no "→" in copy.
-6. **Reward process, never P&L.** Celebrate check-ins, kept promises, honoured Stops ("Walked away"), and urges ridden out. Red days must never feel punitive. A missed promise is neutral grey, never red shame.
+6. **Reward process; show the account honestly, never shame.** Celebrate check-ins, kept promises, honoured Stops ("Walked away"), and urges ridden out, never profit. The account (balance, target, loss limits) is shown because a funded trader lives by it, but limits read as *room left* in orange, never red, and a losing balance stays in label colour. Red days must never feel punitive. A missed promise is neutral grey, never red shame. Journal insights need 3+ trades per side and must never teach that a risky feeling, a broken rule or an override paid.
 
 ## Tokens (`src/constants/theme.ts`)
 
@@ -63,6 +63,7 @@ If the kit lacks something you need, build it inside your own feature folder in 
   - `stageOf(s)` returns checkin | day | close | done. It drives Today's single primary action.
   - Medals: `AWARDS` (id, title, detail, image, earned, progress) and `LOCKED_MEDAL`.
   - `settings.freezes` holds the streak freezes in the bank.
+- `src/lib/account.ts`: the prop-firm account from logged R. `accountStatus(s, now)` gives balance %, room before the daily and max loss limits, losses left, trading days, the four objectives and `blocked` (the gate's Stop, only once `accountSize > 0`). `performance(trades)` gives the equity curve and win rate, profit factor, expectancy, average win/loss, drawdown. Half-size trades carry `size: 0.5`.
 - `src/lib/derive.ts`: `evaluateGate`, `tradingToday`, `journalStats`, `EMOTIONS`, `fmtR`, `timeAgo`. Only the Gate agent may edit this file.
 - Medals are stamped and celebrated globally by `AwardWatcher` in the root layout, so never celebrate medals yourself.
 
@@ -89,6 +90,7 @@ If the kit lacks something you need, build it inside your own feature folder in 
 - **Today = Fitness Summary.**
   - The hero is a compact card: rings at the left, the three numbers at the right. Tap for "Today's rings" (what's left, with promise switches); swipe the rings to spin them.
   - One primary action by stage: "Check in" (morning sheet, 4 taps: mood slider, energy, sleep, intention), "Check before you trade" with the day's trades and trade window under it, "Close the day" (evening sheet, 3 taps), or a calm done state.
+  - Under it, the account card: balance and today's %, then target, daily loss, max loss and trading days as bars, and "Room for N more losses today". Without an account, one "Set up your account" row.
   - Then "Your day" (a timeline strip from the sleep engine), the Week in review card (Sunday evening until watched), one coach card, promises as switch rows, the streak with freezes, and the why as a quiet quote.
 - **Gate = Health State of Mind, then a checklist, then a Weather-style verdict.**
   - Step 1: a slider over the 7 mood shapes, colour shifting purple→blue→orange.
@@ -96,7 +98,7 @@ If the kit lacks something you need, build it inside your own feature folder in 
   - Step 3: rules as switches.
   - Step 4: a full-bleed verdict with one action. A Wait shows a countdown ring.
   - Under 30 seconds in total.
-- **Journal = Health Highlights plus Screen Time charts.** One plain-English insight, a 7 / 30 day R chart you can scrub, "Your days" (mood calendar with a day sheet), one card with three lenses (feelings, tiredness, rules), then filterable entries. The Week in review story lives here too (Apple Music Replay style).
+- **Journal = Health Highlights plus Screen Time charts plus a prop-firm dashboard.** One plain-English insight, a 7 / 30 day R chart you can scrub, an equity curve you can scrub with six stat tiles, "Your days" (mood calendar with a day sheet), one card with three lenses (feelings, tiredness, rules), then filterable entries. The Week in review story lives here too (Apple Music Replay style).
 - **Urge = Breathe plus one sec.** Name it with big chips, rate it with a vertical slider, then a breathing bloom (4s in / 6s out, 1/3/5 min). Re-rate and show the drop ("8 to 4").
 - **Sleep = Health Sleep plus the iOS Clock bedtime dial.** Debt on the night sky, scrubbable nights, a 24-hour body-clock dial you turn, trade windows, habits, nights and settings.
 - **Medals = Fitness awards.** Live 3D (`features/medal3d`): drag, flick, double-tap to flip, tilt to look. The pre-rendered WebP shows first and stays wherever WebGL can't run.
