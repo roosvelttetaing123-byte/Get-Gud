@@ -11,7 +11,7 @@ import { CheckInSheet } from '@/features/today/CheckInSheet';
 import { CloseSheet } from '@/features/today/CloseSheet';
 import { CoachCard } from '@/features/today/CoachCard';
 import { DayStrip } from '@/features/today/DayStrip';
-import { ProfileButton, WhyQuote } from '@/features/today/Header';
+import { TodayAccessory, WhyQuote } from '@/features/today/Header';
 import { HeroRings } from '@/features/today/HeroRings';
 import { PrimaryAction } from '@/features/today/PrimaryAction';
 import { Promises } from '@/features/today/Promises';
@@ -56,7 +56,7 @@ export default function TodayScreen() {
   const openClose = () => setSheet('close');
 
   return (
-    <Screen backdrop="today" title="Today" caption={appleDate(now)} accessory={<ProfileButton name={settings.name} />}>
+    <Screen backdrop="today" title="Today" caption={appleDate(now)} accessory={<TodayAccessory name={settings.name} streak={streakNow} />}>
       <View style={{ gap: S.md }}>
         <HeroRings details={details} perfect={perfect} evening={stage === 'close'} onPress={() => setSheet('rings')} />
         <PrimaryAction
