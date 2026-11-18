@@ -90,7 +90,7 @@ If the kit lacks something you need, build it inside your own feature folder in 
 - **Today = Fitness Summary.**
   - The hero is a compact card: rings at the left, the three numbers at the right. Tap for "Today's rings" (what's left, with promise switches); swipe the rings to spin them.
   - One primary action by stage: "Check in" (morning sheet, 4 taps: mood slider, energy, sleep, intention), "Check before you trade" with the day's trades and trade window under it, "Close the day" (evening sheet, 3 taps), or a calm done state.
-  - Under it, the account card: balance and today's %, then target, daily loss, max loss and trading days as bars, and "Room for N more losses today". Without an account, one "Set up your account" row.
+  - Under it, the account card: balance and today's %, then target, daily loss, max loss and trading days as bars, and "N full losses before a limit". Without an account, one "Set up your account" row.
   - Then "Your day" (a timeline strip from the sleep engine), the Week in review card (Sunday evening until watched), one coach card, promises as switch rows, the streak with freezes, and the why as a quiet quote.
 - **Gate = Health State of Mind, then a checklist, then a Weather-style verdict.**
   - Step 1: a slider over the 7 mood shapes, colour shifting purple→blue→orange.

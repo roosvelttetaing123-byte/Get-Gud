@@ -48,8 +48,8 @@ export function AccountCard({ acct }: { acct: AccountStatus }) {
   const balancePct = acct.totalPct;
   const lossLine = Number.isFinite(acct.lossesLeft)
     ? acct.lossesLeft === 0
-      ? 'No room for another loss today.'
-      : `Room for ${acct.lossesLeft} more ${acct.lossesLeft === 1 ? 'loss' : 'losses'} today.`
+      ? 'No room for another full loss today.'
+      : `${acct.lossesLeft} full ${acct.lossesLeft === 1 ? 'loss' : 'losses'} before a limit.`
     : null;
   const label = `Account ${fmtMoney(acct.size, 100 + balancePct)}, ${fmtPct(balancePct)}. ${acct.objectives
     .map((o) => `${o.label}: ${o.detail}`)
