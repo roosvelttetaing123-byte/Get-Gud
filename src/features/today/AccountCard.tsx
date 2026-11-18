@@ -21,14 +21,14 @@ const BAR: Record<Objective['key'], string> = {
   max: SYS.orange,
 };
 
-export function AccountCard({ acct }: { acct: AccountStatus }) {
+export function AccountCard({ acct, onSetUp }: { acct: AccountStatus; onSetUp: () => void }) {
   if (!acct.set) {
     return (
       <Card
         padding={S.md}
         onPress={() => {
           haptic.tap();
-          router.push('/settings');
+          onSetUp();
         }}
         accessibilityLabel="Set up your account. Track the target, daily loss and max loss">
         <View style={styles.setup}>

@@ -11,6 +11,7 @@ import { CheckInSheet } from '@/features/today/CheckInSheet';
 import { CloseSheet } from '@/features/today/CloseSheet';
 import { CoachCard } from '@/features/today/CoachCard';
 import { DayStrip } from '@/features/today/DayStrip';
+import { AccountSheet } from '@/features/settings/AccountSheet';
 import { AccountCard } from '@/features/today/AccountCard';
 import { TodayAccessory, WhyQuote } from '@/features/today/Header';
 import { HeroRings } from '@/features/today/HeroRings';
@@ -29,7 +30,7 @@ import { sleepEdge } from '@/lib/sleepEdge';
 import { dayKey, useStore } from '@/lib/store';
 import { Screen } from '@/ui';
 
-type SheetName = 'rings' | 'checkin' | 'close' | null;
+type SheetName = 'rings' | 'checkin' | 'close' | 'account' | null;
 
 export default function TodayScreen() {
   const state = useStore();
@@ -57,6 +58,12 @@ export default function TodayScreen() {
 
   const openCheckIn = () => setSheet('checkin');
   const openClose = () => setSheet('close');
+  // A fresh key per open so the account sheet's draft starts from what's saved.
+  const [accountKey, setAccountKey] = useState(0);
+  const openAccount = () => {
+    setAccountKey((n) => n + 1);
+    setSheet('account');
+  };
 
   return (
     <Screen backdrop="today" title="Today" caption={appleDate(now)} accessory={<TodayAccessory name={settings.name} streak={streakNow} />}>
@@ -71,7 +78,7 @@ export default function TodayScreen() {
           onCheckIn={openCheckIn}
           onCloseDay={openClose}
         />
-        <AccountCard acct={acct} />
+        <AccountCard acct={acct} onSetUp={openAccount} />
       </View>
 
       <DayStrip
@@ -112,6 +119,7 @@ export default function TodayScreen() {
         onCloseDay={openClose}
       />
       <CheckInSheet visible={sheet === 'checkin'} onClose={() => setSheet(null)} checkin={day?.checkin} />
+      <AccountSheet key={accountKey} visible={sheet === 'account'} onClose={() => setSheet(null)} />
       <CloseSheet visible={sheet === 'close'} onClose={() => setSheet(null)} close={day?.close} intention={day?.checkin?.intention} />
     </Screen>
   );

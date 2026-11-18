@@ -180,11 +180,11 @@ export function performance(trades: Trade[]): Performance {
 
 /* ---------- format ---------- */
 
-/** "+4.2%", "−1%", "0.5%"; `sign` false drops the plus. One decimal at most. */
+/** "+4.2%", "−1%", "0.75%"; `sign` false drops the plus. Two decimals at most, trailing zeros dropped. */
 export function fmtPct(p: number, sign = true): string {
-  const v = Math.round(p * 10) / 10;
+  const v = Math.round(p * 100) / 100;
   const abs = Math.abs(v);
-  const body = Number.isInteger(abs) ? String(abs) : abs.toFixed(1);
+  const body = String(Number(abs.toFixed(2)));
   return `${v < 0 ? '−' : sign && v > 0 ? '+' : ''}${body}%`;
 }
 

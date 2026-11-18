@@ -114,7 +114,9 @@ describe('performance', () => {
 
 describe('format', () => {
   test('percent and money', () => {
-    assert.equal(A.fmtPct(4.25), '+4.3%');
+    assert.equal(A.fmtPct(4.25), '+4.25%');
+    assert.equal(A.fmtPct(0.756, false), '0.76%');
+    assert.equal(A.fmtPct(1.5), '+1.5%');
     assert.equal(A.fmtPct(-1), '−1%');
     assert.equal(A.fmtPct(5, false), '5%');
     assert.equal(A.fmtMoney(100000, 1.25), '$1,250');
