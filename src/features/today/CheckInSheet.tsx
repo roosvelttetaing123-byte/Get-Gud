@@ -51,13 +51,28 @@ function CheckInForm({ checkin, onDone }: { checkin?: CheckIn; onDone: () => voi
     return logged === undefined ? undefined : Math.max(5, Math.min(9, Math.round(logged)));
   });
   const [intention, setIntention] = useState(checkin?.intention ?? '');
+  // No night logged yet (or only the one this check-in made): the sleep answer logs it too,
+  // so Sleep and "Your day" update without asking twice.
+  const [logsNight] = useState(() => {
+    const s = getState();
+    const own = checkin?.sleepId ? s.sleeps.find((l) => l.id === checkin.sleepId) : undefined;
+    return own ? own : sleepSummary(s).debt.lastNight === undefined ? null : undefined;
+  });
 
   const save = () => {
+    let sleepId = checkin?.sleepId;
+    if (sleep !== undefined && logsNight !== undefined) {
+      // Woke at your usual time (or now, if that's still ahead), slept the hours you picked.
+      const now = Date.now();
+      const wake = logsNight ? logsNight.wake : Math.min(now, sleepSummary(getState(), now).sched.wakeAt);
+      sleepId = actions.saveSleep({ id: logsNight?.id, bed: wake - sleep * 3_600_000, wake, source: 'manual' }).id;
+    }
     actions.checkIn(dayKey(), {
       valence,
       energy,
       sleepHours: sleep,
       intention: intention.trim() || undefined,
+      sleepId,
     });
     haptic.success();
     onDone();
@@ -124,6 +139,7 @@ function CheckInForm({ checkin, onDone }: { checkin?: CheckIn; onDone: () => voi
         {sleep !== undefined ? (
           <Txt v="footnote" color={C.label2}>
             {sleep < 6 ? 'Short night. Be picky with trades today.' : sleep >= 7 ? 'Well rested.' : 'A little short. Go steady.'}
+            {logsNight !== undefined ? ' Saved to Sleep too.' : ''}
           </Txt>
         ) : null}
       </SheetCard>

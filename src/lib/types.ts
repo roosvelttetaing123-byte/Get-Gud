@@ -33,6 +33,7 @@ export interface CheckIn {
   energy?: number; // 1-5
   sleepHours?: number;
   intention?: string; // one line for today
+  sleepId?: string; // the night this check-in logged, when no night was logged yet
 }
 
 export interface DayClose {
